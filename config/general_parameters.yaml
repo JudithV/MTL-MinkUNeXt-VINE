@@ -1,0 +1,119 @@
+dataset_folder: '/home/arvc/Judith/MinkUNeXt-main/' # '/home/arvc/Judith/MinkUNeXt-main'
+cuda_device: 'cuda:1' # 'cuda:0' or 'cuda:1'
+
+patience: 40
+min_delta: 0.001
+
+quantization_size: 0.01  # esfericas: [2.5,2.0,1.875], [0.1,2.0,1.875] [m,deg,deg]; cartesianas: 0.01 [m,m,m]
+num_workers: 0
+batch_size: 2048 #128 / --> 2048
+batch_size_limit: 2048  #128 / --> 2048
+batch_expansion_rate: 1.4 # Null
+batch_expansion_th: 0.7 # Null
+batch_split_size: 4 #32
+val_batch_size: 4 # 32
+
+format_point_cloud: 'csv' #'bin' | 'csv'
+
+spherical_coords: False
+normalize: True
+use_intensity: False
+process_intensity: False
+equalize_intensity: False
+correct_intensity: False
+use_downsampled: False
+min_distance: 2
+max_distance: 60 # 60
+
+use_2D: False # BLT 2D LiDAR
+
+optimizer: 'Adam' # Adam or AdamW
+initial_lr: 0.001
+scheduler: 'MultiStepLR' # MultiStepLR or CosineAnnealingLR or Null
+aug_mode: 1 # 1 if yes
+weight_decay: 0.0001
+loss: 'TruncatedSmoothAP' #'TruncatedSmoothAP' or 'BatchHardTripletMarginLoss' or 'BatchHardContrastiveLoss'
+
+margin: Null
+tau1: 0.01
+positives_per_query: 4
+similarity: 'euclidean' # 'cosine' or 'euclidean'
+# Params for Contrastive Loss
+pos_margin: 0
+neg_margin: 1
+
+normalize_embeddings: False
+aggregator_fusion: False
+clustering_head: True
+clustering_importance: 0.5
+cluster_batch_size: 2048
+use_cross_entropy: False
+cross_entropy_importance: 0.2
+labeling_head: False
+labeling_importance: 0.1
+labeling_batch_size: 16
+
+protocol: 'vmd'
+baseline:
+  epochs: 400
+  scheduler_milestones: [250, 350]
+  num_points: 4096
+  train_file: training_queries_baseline_pruebas.pickle
+  val_file: test_queries_baseline_pruebas.pickle
+
+refined:
+  epochs: 500
+  scheduler_milestones: [350, 450]
+  num_points: 4096
+  train_file: training_queries_refine_pruebas.pickle
+  val_file: test_queries_baseline_pruebas.pickle
+
+arvc:
+  epochs: 200
+  scheduler_milestones: [50, 150]
+  num_points: 23000
+  train_file: training_queries_arvc_pruebas.pickle
+  val_file: test_queries_arvc_pruebas.pickle
+
+nclt:
+  epochs: 400
+  scheduler_milestones: [250, 350]
+  train_file: training_queries_nclt_pruebas.pickle
+  val_file: test_queries_nclt_pruebas.pickle
+
+
+intensityOxford:
+  epochs: 400 # 400
+  scheduler_milestones: [250, 350] # [250, 350]
+  num_points: 4096
+  train_file: intensityOxford_training_queries.pickle
+  val_file: intensityOxford_test_queries.pickle
+
+usyd:
+  epochs: 400 # 40 / 400
+  scheduler_milestones: [250, 350] #[30] / [250, 350]
+  num_points: 23000
+  train_file: usyd_training_queries.pickle
+  val_file: usyd_test_queries.pickle
+
+blt:
+  epochs: 200 # 75
+  scheduler_milestones: [75, 150] # [25, 50]
+  num_points: 23000
+  train_file: train_test_sets/blt/training_queries_blt_Ktima_3D_autumn.pickle
+  val_file: train_test_sets/blt/test_queries_blt_Ktima_3D_autumn.pickle
+
+vmd:
+  epochs: 200 # 75
+  scheduler_milestones: [75, 150] # [25, 50]
+  num_points: 23000
+  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_Livox.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
+  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_Livox.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
+
+print:
+  model_info: True
+  number_of_parameters: True
+  debug: False
+
+evaluate:
+  weights_path: '/home/arvc/Judith/MinkUNeXt-main/weights/MinkUNeXt_vmd_20251205_0953_final.pth'

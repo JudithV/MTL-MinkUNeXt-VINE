@@ -1,0 +1,8 @@
+__pycache__
+*.txt
+*.png
+*.pickle
+train_test_sets
+*.pth
+vmd
+wandb
