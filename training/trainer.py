@@ -82,11 +82,14 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
             loss = loss + lambda_clust * loss_clust
         if PARAMS.use_cross_entropy:
             ce_loss = torch.tensor(0.0, device=device)
-            if 'clustering_logits' in y and 'labels' in batch:
-                logits = y['clustering_logits']           # [B, num_labels]
+            if 'logits' in y and 'labels' in batch:
+                logits = y['logits']           # [B, num_labels]
                 labels = batch['labels'].squeeze().long() # [B]
                 weight_classes = [0.25, 0.25, 1.0]
-                ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes) 
+                weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=logits.device)
+
+                ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
+
                 ce_loss = ce_fn(logits, labels)
                 lambda_ce = getattr(PARAMS, 'ce_importance', 1.0)
                 stats['ce_loss'] = ce_loss.item()  # opcional, para logs
@@ -137,7 +140,7 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             if PARAMS.clustering_head:
                 clustering_l.append(y['global']) # y['clustering_emb']
             if PARAMS.use_cross_entropy:
-                clustering_logits_l.append(y['clustering_logits'])
+                clustering_logits_l.append(y['logits'])
                 if 'labels' in minibatch:
                     labels_l.append(minibatch['labels'].to(device))
 
@@ -200,7 +203,10 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             # 3. Cross Entropy
         if PARAMS.use_cross_entropy:
             weight_classes = [0.25, 0.25, 1.0]
+            weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=clustering_logits.device)
+
             ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
+
             ce_loss = ce_fn(clustering_logits, labels.long())
             
             total_loss = total_loss + (PARAMS.cross_entropy_importance * ce_loss)
@@ -239,7 +245,8 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
                 if embeddings_grad is not None:
                     # retain_graph=True es necesario porque vamos a hacer backward sobre la misma gráfica
                     # para el clustering head justo después.
-                    embeddings_mb.backward(gradient=embeddings_grad[i: i+minibatch_size], retain_graph=PARAMS.clustering_head)
+                    retain_graph = PARAMS.clustering_head or PARAMS.use_cross_entropy
+                    embeddings_mb.backward(gradient=embeddings_grad[i: i+minibatch_size], retain_graph=retain_graph)
 
                 # Inyectar gradiente Clustering
                 if PARAMS.clustering_head:
@@ -248,9 +255,9 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
                     if clustering_grad is not None:
                         # El gradiente ya viene escalado por lambda desde el Stage 2
                         clustering_mb.backward(gradient=clustering_grad[i: i+minibatch_size], retain_graph=PARAMS.use_cross_entropy)
-                if PARAMS.use_cross_entropy
+                if PARAMS.use_cross_entropy:
                     if clustering_logits_grad is not None:
-                        clustering_logits_mb = y['clustering_logits']
+                        clustering_logits_mb = y['logits']
                         clustering_logits_mb.backward(gradient=clustering_logits_grad[i: i+minibatch_size])
 
                 i += minibatch_size

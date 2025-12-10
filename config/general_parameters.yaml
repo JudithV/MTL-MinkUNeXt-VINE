@@ -44,14 +44,14 @@ neg_margin: 1
 
 normalize_embeddings: False
 aggregator_fusion: False
-clustering_head: True
+clustering_head: False
 clustering_importance: 0.5
 cluster_batch_size: 2048
-use_cross_entropy: False
-cross_entropy_importance: 0.2
+use_cross_entropy: True
+cross_entropy_importance: 0.5
 labeling_head: False
 labeling_importance: 0.1
-labeling_batch_size: 16
+labeling_batch_size: 2048
 
 protocol: 'vmd'
 baseline:
@@ -107,8 +107,8 @@ vmd:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_Livox.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
-  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_Livox.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
+  train_file: train_test_sets/vmd/training_queries_vmd_feb_zones_Livox.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
+  val_file: train_test_sets/vmd/test_queries_vmd_feb_zones_Livox.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
 
 print:
   model_info: True

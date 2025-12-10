@@ -71,7 +71,7 @@ class TrainingDataset(Dataset):
         # query['intensity'] = self.intensity_loader(file_pathname)
         query_pc['cloud'] = torch.tensor(query_pc['cloud'], dtype=torch.float)
         query_pc['reflec'] = torch.tensor(query_pc['reflec'], dtype=torch.float)
-        if PARAMS.clustering_head:
+        if PARAMS.use_cross_entropy:
             query_pc['labels'] = torch.tensor(query_pc['labels'], dtype=torch.int)
         query_pc['reflec'] = query_pc['reflec'].reshape([-1,1])
         if self.transform is not None:
@@ -161,7 +161,7 @@ class PointCloudLoader:
         # file_pathname: relative file path
         assert os.path.exists(file_pathname), f"Cannot open point cloud: {file_pathname}"
         pc, reflec = self.read_pc(self.device, file_pathname)
-        if PARAMS.clustering_head:
+        if PARAMS.use_cross_entropy:
             path_labels = Path(file_pathname).parents[2]
             df = pd.read_csv(path_labels / "data.csv", dtype={'timestamp': str})
 
@@ -181,7 +181,7 @@ class PointCloudLoader:
         if self.remove_ground_plane:
             mask = pc[:, 2] > self.ground_plane_level
             pc = pc[mask]
-        if PARAMS.clustering_head:
+        if PARAMS.use_cross_entropy:
             query = {'cloud': pc, 'reflec': reflec, 'labels': labels}
         else:
             query = {'cloud': pc, 'reflec': reflec}

@@ -67,7 +67,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
         if PARAMS.use_intensity:
             clouds = [e[0]['cloud'] for e in data_list]
             reflecs = [e[0]['reflec'] for e in data_list]
-            if PARAMS.clustering_head:
+            if PARAMS.use_cross_entropy:
                 segments = [e[0]['labels'] for e in data_list]
             labels = [e[1] for e in data_list]
             if dataset.set_transform is not None:
@@ -103,7 +103,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
                 feats = torch.cat(feats, dim=0)
                 #feats_composed = torch.cat(feats_composed, dim=0)
                 feats_doble = torch.cat((unos, feats), dim = 1)
-                if PARAMS.clustering_head:
+                if PARAMS.use_cross_entropy:
                     pointcloud_batch = {'coords': coords, 'features': feats, 'labels': segments}
                 else:
                     pointcloud_batch = {'coords': coords, 'features': feats}
@@ -119,7 +119,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
                     c = ME.utils.batched_coordinates(temp_coords)
                     unos = torch.ones((c.shape[0], 1), dtype=torch.float32)
                     f_2 = torch.cat((unos, feats_r), dim = 1)
-                    if PARAMS.clustering_head:
+                    if PARAMS.use_cross_entropy:
                         temp_labels = segments[i:i + batch_split_size]
                         feats_l = torch.cat(temp_labels, dim=0)
                         pointcloud_minibatch = {'coords': c, 'features': feats_r, 'labels': feats_l}
@@ -134,7 +134,8 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
             # Constructs a batch object
             clouds = [e[0]['cloud'] for e in data_list]
             labels = [e[1] for e in data_list]
-
+            if PARAMS.use_cross_entropy:
+                segments = [e[0]['labels'] for e in data_list]
             if dataset.set_transform is not None:
                 # Apply the same transformation on all dataset elements
                 lens = [len(cloud) for cloud in clouds]
@@ -157,7 +158,10 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
                 coords = ME.utils.batched_coordinates(coords)
                 # Assign a dummy feature equal to 1 to each point
                 feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
-                batch = {'coords': coords, 'features': feats}
+                if PARAMS.use_cross_entropy:
+                    batch = {'coords': coords, 'features': feats, 'labels': segments}
+                else:
+                    batch = {'coords': coords, 'features': feats}
 
             else:
                 # Split the batch into chunks
@@ -166,7 +170,12 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
                     temp = coords[i:i + batch_split_size]
                     c = ME.utils.batched_coordinates(temp)
                     f = torch.ones((c.shape[0], 1), dtype=torch.float32)
-                    minibatch = {'coords': c, 'features': f}
+                    if PARAMS.use_cross_entropy:
+                        temp_labels = segments[i:i + batch_split_size]
+                        feats_l = torch.cat(temp_labels, dim=0)
+                        minibatch = {'coords': c, 'features': f, 'labels': feats_l}
+                    else:
+                        minibatch = {'coords': c, 'features': f}
                     batch.append(minibatch)
 
             # Returns (batch_size, n_points, 3) tensor and positives_mask and negatives_mask which are

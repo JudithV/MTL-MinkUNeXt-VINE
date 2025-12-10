@@ -33,7 +33,7 @@ FILENAME_GPS = "gps.csv"
 FILENAME = "data.csv"
 POINTCLOUD_FOLS = "pointcloud/lidar3d_1/"
 USE_GPS = True
-USE_SEGMENT = False
+USE_SEGMENT = True
 
 def plot_split_for_anchor(df_centroids, queries, filename, anchor_ndx=0,
                           delta_pos_north=2.5, delta_pos_east=8, 
@@ -96,7 +96,7 @@ def construct_query_dict(df_centroids, base_path, filename,
     queries = {}
     tree = KDTree(df_centroids[['northing', 'easting']])
     coords = df_centroids[['northing', 'easting']].values
-    type_run = df_centroids['type'].values
+    #type_run = df_centroids['type'].values
     segments = df_centroids['segment'].values
     ind_nn = tree.query_radius(df_centroids[['northing', 'easting']], r=10) # r=7
     ind_r = tree.query_radius(df_centroids[['northing', 'easting']], r=15) # r=15
@@ -109,36 +109,23 @@ def construct_query_dict(df_centroids, base_path, filename,
         assert os.path.splitext(scan_filename)[1] == '.csv', f"Expected .csv file: {scan_filename}"
         timestamp = int(os.path.splitext(scan_filename)[0])
 
-        if USE_SEGMENT:
-            # Anchor conditions
-            anchor_type = type_run[anchor_ndx]
-            anchor_segment = segments[anchor_ndx]
+        # Conventional positives and non-negatives division by distance
+        positives = ind_nn[anchor_ndx]
+        non_negatives = ind_r[anchor_ndx]
 
-            # Positives
-            positives = ind_nn[anchor_ndx]
-            positives = positives[positives != anchor_ndx]  # excluir el propio ancla
-            positives = [p for p in positives if type_run[p] == anchor_type and segments[p] == anchor_segment]
-            positives = np.sort(positives)
-
-            # Non-negatives
-            non_negatives = ind_r[anchor_ndx]
-            non_negatives = [n for n in non_negatives if type_run[n] == anchor_type and segments[n] == anchor_segment]
-            non_negatives = np.sort(non_negatives)
-        else:
-            # Conventional positives and non-negatives division by distance
-            positives = ind_nn[anchor_ndx]
-            non_negatives = ind_r[anchor_ndx]
-
-            positives = positives[positives != anchor_ndx]
-            # Sort ascending order
-            positives = np.sort(positives)
-            non_negatives = np.sort(non_negatives)
+        positives = positives[positives != anchor_ndx]
+        # Sort ascending order
+        positives = np.sort(positives)
+        non_negatives = np.sort(non_negatives)
 
         # Tuple(id: int, timestamp: int, rel_scan_filepath: str, positives: List[int], non_negatives: List[int])
         if not USE_SEGMENT:
             queries[anchor_ndx] = TrainingTuple(id=anchor_ndx, timestamp=timestamp, rel_scan_filepath=query,
                                                 positives=positives, non_negatives=non_negatives, segment=-1, position=anchor_pos)
-
+        else:
+            anchor_segment = segments[anchor_ndx]
+            queries[anchor_ndx] = TrainingTuple(id=anchor_ndx, timestamp=timestamp, rel_scan_filepath=query,
+                                                positives=positives, non_negatives=non_negatives, segment=anchor_segment, position=anchor_pos)
     file_path = os.path.join(base_path, filename)
     with open(file_path, 'wb') as handle:
         pickle.dump(queries, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -271,8 +258,8 @@ if __name__ == '__main__':
     for folder in tqdm.tqdm(folders):
         if "run2_02_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
             continue
-        """if "_01_" not in folder and "_02_" not in folder and "_03_" not in folder:
-            continue"""
+        if "_01_" not in folder:
+            continue
         files, scantimes_pcds, ref_times, scan_times, utm_pos = [], [], [], [], []
         if os.path.exists(base_path+RUNS_FOLDER+"pergola/"+folder):
             run_path = os.path.join(base_path, RUNS_FOLDER,"pergola", folder)
@@ -323,11 +310,11 @@ if __name__ == '__main__':
                     print(f"Error deleting {f}: {e}")"""
             
     i = 0
-    """for folder in tqdm.tqdm(folders):
+    for folder in tqdm.tqdm(folders):
         df_triplet = pd.DataFrame(columns=['file', 'northing', 'easting'])
         if "run2_03_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
             continue
-        if "_01_" not in folder and "_02_" not in folder and "_03_" not in folder:
+        if "_01_" not in folder:
             continue
         if os.path.exists(RUNS_FOLDER + "pergola/" + folder):
             run_path = os.path.join(RUNS_FOLDER,"pergola",folder)
@@ -345,15 +332,15 @@ if __name__ == '__main__':
                 df_test = df_test.append(row, ignore_index=True)
             else:
                 df_train = df_train.append(row, ignore_index=True)
-            if "run2" in folder:
+            """if "run2" in folder:
                 df_test = df_test.append(row, ignore_index=True)
             else:
                 df_train = df_train.append(row, ignore_index=True)
             if i % 2 == 0:
                 df_test = df_test.append(row, ignore_index=True)
             else:
-                df_train = df_train.append(row, ignore_index=True)
-            #i += 1"""
+                df_train = df_train.append(row, ignore_index=True)"""
+            #i += 1
 
     print("Number of training submaps: " + str(len(df_train['file'])))
     print("Number of non-disjoint test submaps: " + str(len(df_test['file'])))
@@ -363,8 +350,8 @@ if __name__ == '__main__':
     print("Vineyard count in test: ", df_test["file"].str.count("vineyard").sum())
 
     # ind_nn_r is a threshold for positive elements - 10 is in original PointNetVLAD code for refined dataset
-    #train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_VELO.pickle")
+    train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_feb_zones_Livox.pickle")
     #plot_split_for_anchor(df_train, train_queries, "scans_train_set.png")
-    #test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_VELO.pickle")
+    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_feb_zones_Livox.pickle")
     #plot_split_for_anchor(df_test, test_queries, "scans_test_set.png")"""
 

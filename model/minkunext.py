@@ -367,7 +367,7 @@ class MinkUNeXt(ResNetBase):
             descriptor = self.GeM_pool(out)
         if PARAMS.use_cross_entropy:
             logits = self.classification_head(trasposed_features2)
-            reutnr {'global': descriptor, 'logits': logits}
+            return {'global': descriptor, 'logits': logits}
         if PARAMS.clustering_head:
             clust_out = self.clustering_head(trasposed_features2)
             return {'global': descriptor, 'clustering_emb': clust_out}
@@ -376,6 +376,7 @@ class MinkUNeXt(ResNetBase):
 
 class ClassificationHead(nn.Module):
     def __init__(self, in_features=192, hidden_dim=None, n_classes=3, dropout=0.2):
+        super().__init__()
         if hidden_dim is None:
             hidden_dim = max(in_features // 2, 32)
         self.mlp = nn.Sequential(
@@ -386,7 +387,29 @@ class ClassificationHead(nn.Module):
         )
     def forward(self, x):
         out = self.mlp(x)
-        return out.F
+        logits = out.F        # (N_points, C)
+        batch_idxs = out.C[:, 0].long()  # (N_points,)
+
+        # pooling por scan
+        B = batch_idxs.max().item() + 1
+        C = logits.shape[1]
+        device = logits.device
+
+        pooled = torch.zeros(B, C, device=device)
+        counts = torch.zeros(B, device=device)
+
+        pooled.scatter_add_(0,
+            batch_idxs.unsqueeze(1).expand(-1, C),
+            logits
+        )
+        counts.scatter_add_(0,
+            batch_idxs,
+            torch.ones_like(batch_idxs, dtype=torch.float, device=device)
+        )
+
+        pooled = pooled / counts.unsqueeze(1)
+
+        return pooled
 
 class ClusteringHead(nn.Module):
     def __init__(self, in_features=192, out_dim=64, num_labels=7):
