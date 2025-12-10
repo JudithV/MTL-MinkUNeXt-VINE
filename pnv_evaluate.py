@@ -16,7 +16,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import PARAMS 
 from datasets.quantization import quantizer
-
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
 def evaluate(model, device, log: bool = False, show_progress: bool = False):
     # Run evaluation on all eval datasets
@@ -61,13 +61,36 @@ def evaluate_dataset(model, device, database_sets, query_sets, log: bool = False
     query_embeddings = []
 
     model.eval()
+    database_outputs = []
+    query_outputs = []
 
-    for set in tqdm.tqdm(database_sets, disable=not show_progress, desc='Computing database embeddings'):
-        database_embeddings.append(get_latent_vectors(model, set, device))
+    for set in tqdm.tqdm(database_sets, disable=not show_progress):
+        database_outputs.append(get_latent_vectors(model, set, device))
 
-    for set in tqdm.tqdm(query_sets, disable=not show_progress, desc='Computing query embeddings'):
-        query_embeddings.append(get_latent_vectors(model, set, device))
-   
+    for set in tqdm.tqdm(query_sets, disable=not show_progress):
+        query_outputs.append(get_latent_vectors(model, set, device))
+
+    # Replace embeddings:
+    database_embeddings = [d['embeddings'] for d in database_outputs]
+    query_embeddings = [d['embeddings'] for d in query_outputs]
+    all_true = []
+    all_pred = []
+
+    for d in database_outputs + query_outputs:
+        all_true.extend(d['true_labels'])
+        all_pred.extend(d['pred_labels'])
+
+    if len(all_true) > 0:
+        cls_accuracy = accuracy_score(all_true, all_pred)
+        cls_f1 = f1_score(all_true, all_pred, average="weighted")
+        cls_cm = confusion_matrix(all_true, all_pred)
+    else:
+        cls_accuracy = None
+        cls_f1 = None
+        cls_cm = None
+
+    # ------------------------------------------------------------
+
     for i in range(len(query_sets)):
         for j in range(len(query_sets)):
             """if i == j: 
@@ -81,7 +104,14 @@ def evaluate_dataset(model, device, database_sets, query_sets, log: bool = False
 
     ave_recall = recall / count
     ave_one_percent_recall = np.mean(one_percent_recall)
-    stats = {'ave_one_percent_recall': ave_one_percent_recall, 'ave_recall': ave_recall, 'query_results': query_results}
+    stats = {
+        'ave_one_percent_recall': ave_one_percent_recall,
+        'ave_recall': ave_recall,
+        'query_results': query_results,
+        'cls_accuracy': cls_accuracy,
+        'cls_f1': cls_f1,
+        'cls_confusion_matrix': cls_cm,
+    }
     return stats
 
 
@@ -97,6 +127,9 @@ def get_latent_vectors(model, set, device):
     model.eval()
     embeddings = None
     path = "/media/arvc/HDD4TB1/Judith/MinkUNeXt-main/KittiDataset"
+    pred_labels = []
+    true_labels = []
+
     for i, elem_ndx in enumerate(set):
         pc_file_path = os.path.join(PARAMS.dataset_folder, set[elem_ndx]["query"]) # + "/" KITTI: "query_velo"; otros: "query" .replace('.bin', '.csv')
         #pc_file_path = os.path.join(path + "/", set[elem_ndx]["query_velo"])
@@ -104,13 +137,22 @@ def get_latent_vectors(model, set, device):
         cloud = torch.tensor(pc['cloud'], dtype=torch.float)
         reflec = torch.tensor(pc['reflec'], dtype=torch.float)
 
-        embedding = compute_embedding(model, cloud, reflec, device)
+        embedding, zone_logits = compute_embedding(model, cloud, reflec, device)
         if embeddings is None:
             print("Embeddings is NONE")
             embeddings = np.zeros((len(set), embedding.shape[1]), dtype=embedding.dtype)
         embeddings[i] = embedding
+        if zone_logits is not None:
+            pred = np.argmax(zone_logits)
+            pred_labels.append(pred)
 
-    return embeddings
+            true_labels.append(set[elem_ndx]["label"])
+
+    return {
+        'embeddings': embeddings,
+        'pred_labels': pred_labels,
+        'true_labels': true_labels
+    }
 
 def redondeo_personalizado(numero, umbral=0.5):
     entero = int(numero)
@@ -156,8 +198,12 @@ def compute_embedding(model, pc, reflec, device):
         # Forward pass
         y = model(batch)
         embedding = y['global'].detach().cpu().numpy()
+        if 'logits' in y:
+            zone_logits = y['logits'].detach().cpu().numpy()
+        else:
+            zone_logits = None
 
-    return embedding
+    return embedding, zone_logits
 
 def get_recall(m, n, database_vectors, query_vectors, query_sets, database_sets, log=False):
     # Original PointNetVLAD code
@@ -265,6 +311,11 @@ def print_eval_stats(stats):
         t = 'Avg. top 1% recall: {:.2f}   Avg. recall @N:'
         print(t.format(stats[database_name]['ave_one_percent_recall']))
         print(stats[database_name]['ave_recall'])
+        if stats[database_name]['cls_accuracy'] is not None:
+            print(f"[Classification] Accuracy: {stats[database_name]['cls_accuracy']:.4f}")
+            print(f"[Classification] F1-score: {stats[database_name]['cls_f1']:.4f}")
+            print("[Classification] Confusion Matrix:")
+            print(stats[database_name]['cls_confusion_matrix'])
 
 
 def pnv_write_eval_stats(file_name, prefix, stats):
