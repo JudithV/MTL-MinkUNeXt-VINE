@@ -60,9 +60,6 @@ class Config():
             self.cluster_batch_size = config.get('cluster_batch_size')
             self.use_cross_entropy = config.get('use_cross_entropy')
             self.cross_entropy_importance = config.get('cross_entropy_importance')
-            self.labeling_head = config.get('labeling_head')
-            self.labeling_importance = float(config.get('labeling_importance'))
-            self.labeling_batch_size = config.get('labeling_batch_size')
 
             self.protocol = config.get('protocol')
 
