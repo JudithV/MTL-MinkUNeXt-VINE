@@ -1,4 +1,7 @@
-# Code taken from MinkLoc3Dv2 repo: https://github.com/jac99/MinkLoc3Dv2.git
+# Code adapted from MinkLoc3Dv2 repo: https://github.com/jac99/MinkLoc3Dv2.git
+# Institute for Engineering Research of Elche (I3E)
+# Automation, Robotics and Computer Vision lab (ARCV)
+# Author: Judith Vilella Cantos
 
 import os
 import numpy as np
@@ -8,6 +11,7 @@ import tqdm
 import pathlib
 import wandb
 from losses.contrastive_loss import BatchHardContrastiveLossWithMasks
+from losses.matryoshka import MatryoshkaLoss
 from datasets.dataset_utils import make_dataloaders
 from pnv_evaluate import evaluate, print_eval_stats, pnv_write_eval_stats
 from pytorch_metric_learning.distances import LpDistance, CosineSimilarity
@@ -52,7 +56,7 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
     optimizer.zero_grad()
     distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
     loss_fn_cluster = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin, distance=distance)
-
+    loss_fn_matryoshka = MatryoshkaLoss(loss_fn, dims=[64, 128, 192], weights=[1.0, 0.5, 0.25])
     with torch.set_grad_enabled(phase == 'train'):
         y = model(batch)
 
@@ -60,12 +64,13 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
 
         embeddings = y['global']
 
-        loss, temp_stats = loss_fn(embeddings, positives_mask, negatives_mask)
+        #loss, temp_stats = loss_fn(embeddings, positives_mask, negatives_mask)
+        loss, temp_stats = loss_fn_matryoshka(embeddings, positives_mask, negatives_mask)
         #loss, temp_stats = loss_fn_cluster(embeddings, positives_mask, negatives_mask)
         if PARAMS.clustering_head:
             distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
             loss_fn_cluster = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin, distance=distance)
-            clustering = y['global'] # y['clustering_emb']
+            clustering = y['clustering_emb'] # y['clustering_emb']
             if clustering.shape[0] > PARAMS.cluster_batch_size:
                 idx = torch.randperm(clustering.shape[0])[:PARAMS.cluster_batch_size]
                 clustering_sub = clustering[idx]
@@ -80,6 +85,8 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
             loss_clust, _ = loss_fn(clustering, positives_mask, negatives_mask) # loss_fn_cluster
             lambda_clust = PARAMS.clustering_importance
             loss = loss + lambda_clust * loss_clust
+            #loss_clust_triplet, _ = loss_fn_cluster(clustering, positives_mask, negatives_mask)
+            #loss = loss + lambda_clust * loss_clust + lambda_clust * loss_clust_triplet
         if PARAMS.use_cross_entropy:
             ce_loss = torch.tensor(0.0, device=device)
             if 'logits' in y and 'labels' in batch:
@@ -117,7 +124,7 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
     batch, positives_mask, negatives_mask = next(global_iter)
     distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
     loss_fn_cluster = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin, distance=distance)
-
+    loss_fn_matryoshka = MatryoshkaLoss(loss_fn, dims=[64, 128, 192], weights=[1.0, 0.5, 0.25])
     if phase == 'train':
         model.train()
     else:
@@ -138,7 +145,7 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             y = model(minibatch)
             embeddings_l.append(y['global'])
             if PARAMS.clustering_head:
-                clustering_l.append(y['global']) # y['clustering_emb']
+                clustering_l.append(y['clustering_emb']) # y['clustering_emb']
             if PARAMS.use_cross_entropy:
                 clustering_logits_l.append(y['logits'])
                 if 'labels' in minibatch:
@@ -170,7 +177,8 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
                 clustering_logits.requires_grad_(True)
 
         # 1. Loss Global
-        loss, stats = loss_fn(embeddings, positives_mask, negatives_mask)
+        #loss, stats = loss_fn(embeddings, positives_mask, negatives_mask)
+        loss, stats = loss_fn_matryoshka(embeddings, positives_mask, negatives_mask)
         #loss, stats = loss_fn_cluster(embeddings, positives_mask, negatives_mask)
         stats = tensors_to_numbers(stats)
 
@@ -178,28 +186,11 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
         total_loss = loss
         
         if PARAMS.clustering_head:
-            # Nota: Si PARAMS.cluster_batch_size es menor que el batch total, 
-            # el submuestreo debe ocurrir aquí para calcular la loss, pero 
-            # la propagación del gradiente se vuelve compleja porque solo algunos índices tendrán gradiente.
-            # Asumiremos por simplicidad que quieres entrenar con todo o aplicas la loss al tensor completo.
-            
-            # Si realmente necesitas subsampling para la loss function por memoria (aunque es raro en Stage 2 cpu/tensors):
-            if clustering.shape[0] > PARAMS.cluster_batch_size:
-                # OJO: Si haces subsampling aquí, solo los elementos seleccionados tendrán gradiente.
-                # Esto es aceptable, los demás tendrán gradiente 0.
-                idx = torch.randperm(clustering.shape[0])[:PARAMS.cluster_batch_size]
-                clustering_sub = clustering[idx]
-                positives_mask_sub = positives_mask[idx][:, idx]
-                negatives_mask_sub = negatives_mask[idx][:, idx]
-                
-                loss_clust, _ = loss_fn(clustering_sub, positives_mask_sub, negatives_mask_sub)
-                
-                # Truco técnico: Para que el autograd llene el tensor 'clustering.grad' completo,
-                # necesitamos que el gráfico compute dependencias. 
-                # Al indexar (clustering[idx]), PyTorch maneja esto. 
-            else:
-                loss_clust, _ = loss_fn(clustering, positives_mask, negatives_mask)
-            total_loss = total_loss + (PARAMS.clustering_importance * loss_clust)
+            loss_clust, _ = loss_fn(clustering, positives_mask, negatives_mask)
+            #loss_clust_triplet, _ = loss_fn_cluster(clustering, positives_mask, negatives_mask)
+            total_loss += (PARAMS.clustering_importance * loss_clust)
+            #total_loss += (PARAMS.clustering_importance * loss_clust) + (PARAMS.clustering_importance * loss_clust_triplet)
+
             # 3. Cross Entropy
         if PARAMS.use_cross_entropy:
             weight_classes = [0.25, 0.25, 1.0]
@@ -250,7 +241,7 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
 
                 # Inyectar gradiente Clustering
                 if PARAMS.clustering_head:
-                    clustering_mb = y['global'] # y['clustering_emb']
+                    clustering_mb = y['clustering_emb'] # y['clustering_emb']
                     
                     if clustering_grad is not None:
                         # El gradiente ya viene escalado por lambda desde el Stage 2

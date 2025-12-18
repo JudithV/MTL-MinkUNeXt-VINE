@@ -8,61 +8,8 @@ from config import PARAMS
 import torch.nn as nn
 import MinkowskiEngine as ME
 from model.residual_blocks import *
-
-import MinkowskiEngine as ME
-import torch.nn as nn
 import torch.nn.functional as F
 
-
-class MAC(nn.Module):
-    def __init__(self, outdim=None):
-        super().__init__()
-        self.pool = ME.MinkowskiGlobalMaxPooling()
-        self.outdim = outdim
-        if outdim is not None:
-            self.fc = nn.Linear(0, outdim)  # Lazy
-            self.is_lazy = True
-        else:
-            self.fc = None
-
-    def forward(self, x: ME.SparseTensor):
-        # Max pooling Minkowski native
-        pooled = self.pool(x)   # SparseTensor (B, C)
-
-        out = pooled.F          # Dense tensor (B, C)
-
-        if self.fc is None:
-            return out
-
-        if self.is_lazy:
-            self.fc = nn.Linear(out.shape[1], self.outdim).to(out.device)
-            self.is_lazy = False
-
-        return self.fc(out)
-
-class SPoC(nn.Module):
-    def __init__(self, outdim=None):
-        super().__init__()
-        self.pool = ME.MinkowskiGlobalAvgPooling()
-        self.outdim = outdim
-        if outdim is not None:
-            self.fc = nn.Linear(0, outdim)
-            self.is_lazy = True
-        else:
-            self.fc = None
-
-    def forward(self, x: ME.SparseTensor):
-        pooled = self.pool(x)  # SparseTensor (B, C)
-        out = pooled.F         # Dense tensor (B, C)
-
-        if self.fc is None:
-            return out
-
-        if self.is_lazy:
-            self.fc = nn.Linear(out.shape[1], self.outdim).to(out.device)
-            self.is_lazy = False
-
-        return self.fc(out)
 
 class GeM(nn.Module):
     def __init__(self, input_dim, p=3, eps=1e-6):
@@ -215,7 +162,7 @@ class MinkUNeXt(ResNetBase):
     # To use the model, must call initialize_coords before forward pass.
     # Once data is processed, call clear to reset the model before calling
     # initialize_coords
-    def __init__(self, in_channels, out_channels, D=3):
+    def __init__(self, in_channels, out_channels, D=3, agg_fusion=True):
         ResNetBase.__init__(self, in_channels, out_channels, D)
 
     def network_initialization(self, in_channels, out_channels, D):
@@ -297,9 +244,9 @@ class MinkUNeXt(ResNetBase):
 
         self.relu = ME.MinkowskiReLU(inplace=True)
         self.GeM_pool = GeM(input_dim=out_channels)
-        if PARAMS.aggregator_fusion:
-            self.SPoC_pool = SPoC(outdim=out_channels)
-            self.MAC_pool = MAC(outdim=out_channels)
+        if agg_fusion:
+            self.SPoC_pool = SPoC(in_channels=out_channels, outdim=out_channels)
+            self.MAC_pool = MAC(in_channels=out_channels, outdim=out_channels)
             self.fusion= nn.Parameter(torch.ones(1,3))
 
     def forward(self, batch):
@@ -356,20 +303,13 @@ class MinkUNeXt(ResNetBase):
         out = self.block7(out)
 
         out = self.final(out)
-        if PARAMS.aggregator_fusion:
-            spoc =  self.SPoC_pool(out)
-            gem  =  self.GeM_pool(out)
-            mac  =  self.MAC_pool(out)
-            z    =  torch.stack([spoc,gem,mac],dim=1)
-            descriptor = torch.matmul(self.fusion,z).squeeze(1)
-            descriptor = F.normalize(descriptor, p=2, dim=1)
-        else:
-            descriptor = self.GeM_pool(out)
+        descriptor = self.GeM_pool(out) #trasposed_features2
         if PARAMS.use_cross_entropy:
             logits = self.classification_head(trasposed_features2)
             return {'global': descriptor, 'logits': logits}
         if PARAMS.clustering_head:
-            clust_out = self.clustering_head(trasposed_features2)
+            clust_out = self.GeM_pool(trasposed_features2)
+            #clust_out = self.clustering_head(trasposed_features2)
             return {'global': descriptor, 'clustering_emb': clust_out}
         else:
             return {'global': descriptor}
@@ -410,42 +350,6 @@ class ClassificationHead(nn.Module):
         pooled = pooled / counts.unsqueeze(1)
 
         return pooled
-
-class ClusteringHead(nn.Module):
-    def __init__(self, in_features=192, out_dim=64, num_labels=7):
-        super().__init__()
-
-        self.conv1 = ME.MinkowskiConvolution(in_features, 64, kernel_size=3, stride=1, dimension=3)
-        self.bn1 = ME.MinkowskiBatchNorm(64)
-        self.act1 = ME.MinkowskiReLU()
-
-        self.conv2 = ME.MinkowskiConvolution(64, 64, kernel_size=3, stride=1, dimension=3)
-        self.bn2 = ME.MinkowskiBatchNorm(64)
-        self.act2 = ME.MinkowskiReLU()
-
-        self.conv3 = ME.MinkowskiConvolution(64, out_dim, kernel_size=1, stride=1, dimension=3) # 64, out_dim, ...
-
-        self.pool = ME.MinkowskiGlobalAvgPooling()
-
-        # a small linear classifier to map embedding -> logits
-        self.classifier = nn.Linear(out_dim, num_labels)
-
-    def forward(self, x):
-        """
-        Input:
-            x: ME.SparseTensor (feature map from backbone)
-        Returns:
-            dict with:
-              - 'emb': normalized embedding tensor [B, out_dim]
-              - 'logits': raw logits tensor [B, num_labels]
-        """
-        x = self.act1(self.bn1(self.conv1(x)))
-        x = self.act2(self.bn2(self.conv2(x)))
-        x = self.conv3(x)
-        x = self.pool(x)               # ME.SparseTensor with .F : [B, out_dim]
-        feats = x.F                    # dense tensor
-        emb = F.normalize(feats, dim=1)
-        return emb
 
 model = MinkUNeXt(in_channels=1, out_channels=192, D=3)
 

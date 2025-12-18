@@ -116,8 +116,6 @@ class PNVPointCloudLoader(PointCloudLoader):
             else:
                 intensity = df["intensity"].to_numpy()
             if not PARAMS.use_downsampled:
-                if PARAMS.correct_intensity:
-                    intensity = self.correct_intensity(points, intensity)
                 if PARAMS.protocol == 'vmd' or PARAMS.protocol == 'blt':
                     # Remove noisy points
                     [x, y, z] = points[:, 0], points[:, 1], points[:, 2]

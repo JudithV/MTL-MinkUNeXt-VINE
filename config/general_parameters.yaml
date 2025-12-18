@@ -43,8 +43,7 @@ pos_margin: 0
 neg_margin: 1
 
 normalize_embeddings: False
-aggregator_fusion: False
-clustering_head: True
+clustering_head: False
 clustering_importance: 0.5
 cluster_batch_size: 2048
 use_cross_entropy: False
@@ -113,4 +112,4 @@ print:
   debug: False
 
 evaluate:
-  weights_path: '/home/arvc/Judith/MinkUNeXt-main/weights/MinkUNeXt_vmd_20251211_1312_final.pth'
+  weights_path: '/home/arvc/Judith/MinkUNeXt-main/weights/MinkUNeXt_vmd_20251202_1651_final.pth'
