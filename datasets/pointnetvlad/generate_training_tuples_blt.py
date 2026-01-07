@@ -35,7 +35,6 @@ GPS_FOLS = "robot0/gps0"
 
 ZONE_KTIMA = 34
 ZONE_RISEHOLME = 30
-LIDAR_2D = False
 USE_SEGMENT = True
 
 def construct_query_dict(df_centroids, base_path, filename):

@@ -10,6 +10,7 @@ import torch
 import MinkowskiEngine as ME
 import tqdm
 from datasets.pointnetvlad.pnv_raw import PNVPointCloudLoader
+import torch.nn as nn
 from model.minkunext import model
 import sys
 import os
@@ -348,10 +349,10 @@ if __name__ == "__main__":
     
     state_dict = torch.load(PARAMS.weights_path, map_location=device)
 
-    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    missing, unexpected = model.load_state_dict(state_dict, strict=True)
 
     model.to(device)
-
+    model.eval()
     stats = evaluate(model, device)
     print_eval_stats(stats)
 

@@ -12,6 +12,7 @@ import pathlib
 import wandb
 from losses.contrastive_loss import BatchHardContrastiveLossWithMasks
 from losses.matryoshka import MatryoshkaLoss
+from losses.learnable_cross_entropy import LearnableWeightedCrossEntropy
 from datasets.dataset_utils import make_dataloaders
 from pnv_evaluate import evaluate, print_eval_stats, pnv_write_eval_stats
 from pytorch_metric_learning.distances import LpDistance, CosineSimilarity
@@ -54,8 +55,6 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
         model.eval()
 
     optimizer.zero_grad()
-    distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
-    loss_fn_cluster = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin, distance=distance)
     loss_fn_matryoshka = MatryoshkaLoss(loss_fn, dims=[64, 128, 192], weights=[1.0, 0.5, 0.25])
     with torch.set_grad_enabled(phase == 'train'):
         y = model(batch)
@@ -64,41 +63,18 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
 
         embeddings = y['global']
 
-        #loss, temp_stats = loss_fn(embeddings, positives_mask, negatives_mask)
         loss, temp_stats = loss_fn_matryoshka(embeddings, positives_mask, negatives_mask)
-        #loss, temp_stats = loss_fn_cluster(embeddings, positives_mask, negatives_mask)
-        if PARAMS.clustering_head:
-            distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
-            loss_fn_cluster = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin, distance=distance)
-            clustering = y['clustering_emb'] # y['clustering_emb']
-            if clustering.shape[0] > PARAMS.cluster_batch_size:
-                idx = torch.randperm(clustering.shape[0])[:PARAMS.cluster_batch_size]
-                clustering_sub = clustering[idx]
-                positives_mask_sub = positives_mask[idx][:, idx]
-                negatives_mask_sub = negatives_mask[idx][:, idx]
-            else:
-                clustering_sub = clustering
-                positives_mask_sub = positives_mask
-                negatives_mask_sub = negatives_mask
-
-
-            loss_clust, _ = loss_fn(clustering, positives_mask, negatives_mask) # loss_fn_cluster
-            lambda_clust = PARAMS.clustering_importance
-            loss = loss + lambda_clust * loss_clust
-            #loss_clust_triplet, _ = loss_fn_cluster(clustering, positives_mask, negatives_mask)
-            #loss = loss + lambda_clust * loss_clust + lambda_clust * loss_clust_triplet
         if PARAMS.use_cross_entropy:
             ce_loss = torch.tensor(0.0, device=device)
             if 'logits' in y and 'labels' in batch:
                 logits = y['logits']           # [B, num_labels]
                 labels = batch['labels'].squeeze().long() # [B]
-                weight_classes = [0.25, 0.25, 1.0]
+                weight_classes = [1.0, 1.0, 0.25]
                 weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=logits.device)
 
-                ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
-
+                #ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
+                ce_fn = LearnableWeightedCrossEntropy(3, weight_classes)
                 ce_loss = ce_fn(logits, labels)
-                lambda_ce = getattr(PARAMS, 'ce_importance', 1.0)
                 stats['ce_loss'] = ce_loss.item()  # opcional, para logs
                 lambda_ce = PARAMS.cross_entropy_importance
                 loss = loss + lambda_ce * ce_loss
@@ -122,8 +98,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
 
     assert phase in ['train', 'val']
     batch, positives_mask, negatives_mask = next(global_iter)
-    distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
-    loss_fn_cluster = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin, distance=distance)
     loss_fn_matryoshka = MatryoshkaLoss(loss_fn, dims=[64, 128, 192], weights=[1.0, 0.5, 0.25])
     if phase == 'train':
         model.train()
@@ -133,8 +107,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
     # Stage 1 - calculate descriptors of each batch element (with gradient turned off)
     # In training phase network is in the train mode to update BatchNorm stats
     embeddings_l = []
-    if PARAMS.clustering_head:
-        clustering_l = []
     if PARAMS.use_cross_entropy:
         clustering_logits_l = []
         labels_l = []
@@ -144,8 +116,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             minibatch = {e: minibatch[e].to(device) for e in minibatch}
             y = model(minibatch)
             embeddings_l.append(y['global'])
-            if PARAMS.clustering_head:
-                clustering_l.append(y['clustering_emb']) # y['clustering_emb']
             if PARAMS.use_cross_entropy:
                 clustering_logits_l.append(y['logits'])
                 if 'labels' in minibatch:
@@ -157,11 +127,8 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
     embeddings = torch.cat(embeddings_l, dim=0)
     
     embeddings_grad = None
-    clustering_grad = None
     clustering_logits_grad = None
 
-    if PARAMS.clustering_head:
-        clustering = torch.cat(clustering_l, dim=0)
     if PARAMS.use_cross_entropy:
         clustering_logits = torch.cat(clustering_logits_l, dim=0)
         if len(labels_l) > 0:
@@ -171,33 +138,20 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
         if phase == 'train':
             embeddings.requires_grad_(True)
             # IMPORTANTE: Habilitar gradientes para las salidas de clustering también
-            if PARAMS.clustering_head:
-                clustering.requires_grad_(True)
             if PARAMS.use_cross_entropy:
                 clustering_logits.requires_grad_(True)
 
-        # 1. Loss Global
-        #loss, stats = loss_fn(embeddings, positives_mask, negatives_mask)
         loss, stats = loss_fn_matryoshka(embeddings, positives_mask, negatives_mask)
-        #loss, stats = loss_fn_cluster(embeddings, positives_mask, negatives_mask)
         stats = tensors_to_numbers(stats)
 
-        # 2. Loss Clustering (Sobre el batch COMPLETO, no submuestreado si es posible, o submuestreado una vez aquí)
         total_loss = loss
         
-        if PARAMS.clustering_head:
-            loss_clust, _ = loss_fn(clustering, positives_mask, negatives_mask)
-            #loss_clust_triplet, _ = loss_fn_cluster(clustering, positives_mask, negatives_mask)
-            total_loss += (PARAMS.clustering_importance * loss_clust)
-            #total_loss += (PARAMS.clustering_importance * loss_clust) + (PARAMS.clustering_importance * loss_clust_triplet)
-
-            # 3. Cross Entropy
         if PARAMS.use_cross_entropy:
-            weight_classes = [0.25, 0.25, 1.0]
+            weight_classes = [1.0, 1.0, 0.25]
             weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=clustering_logits.device)
 
-            ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
-
+            #ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
+            ce_fn = LearnableWeightedCrossEntropy(3, weight_classes)
             ce_loss = ce_fn(clustering_logits, labels.long())
             
             total_loss = total_loss + (PARAMS.cross_entropy_importance * ce_loss)
@@ -207,15 +161,11 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             total_loss.backward()
             
             embeddings_grad = embeddings.grad
-            if PARAMS.clustering_head:
-                clustering_grad = clustering.grad
             if PARAMS.use_cross_entropy:
                 clustering_logits_grad = clustering_logits.grad
 
     # Limpieza
     embeddings_l, embeddings, loss = None, None, None
-    if PARAMS.clustering_head:
-        clustering_l, clustering = None, None
     if PARAMS.use_cross_entropy:
         clustering_logits = None
 
@@ -236,16 +186,9 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
                 if embeddings_grad is not None:
                     # retain_graph=True es necesario porque vamos a hacer backward sobre la misma gráfica
                     # para el clustering head justo después.
-                    retain_graph = PARAMS.clustering_head or PARAMS.use_cross_entropy
+                    retain_graph = PARAMS.use_cross_entropy
                     embeddings_mb.backward(gradient=embeddings_grad[i: i+minibatch_size], retain_graph=retain_graph)
 
-                # Inyectar gradiente Clustering
-                if PARAMS.clustering_head:
-                    clustering_mb = y['clustering_emb'] # y['clustering_emb']
-                    
-                    if clustering_grad is not None:
-                        # El gradiente ya viene escalado por lambda desde el Stage 2
-                        clustering_mb.backward(gradient=clustering_grad[i: i+minibatch_size], retain_graph=PARAMS.use_cross_entropy)
                 if PARAMS.use_cross_entropy:
                     if clustering_logits_grad is not None:
                         clustering_logits_mb = y['logits']
