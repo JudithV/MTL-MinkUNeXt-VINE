@@ -12,7 +12,6 @@ import pathlib
 import wandb
 from losses.contrastive_loss import BatchHardContrastiveLossWithMasks
 from losses.matryoshka import MatryoshkaLoss
-from losses.learnable_cross_entropy import LearnableWeightedCrossEntropy
 from datasets.dataset_utils import make_dataloaders
 from pnv_evaluate import evaluate, print_eval_stats, pnv_write_eval_stats
 from pytorch_metric_learning.distances import LpDistance, CosineSimilarity
@@ -34,6 +33,18 @@ def print_global_stats(phase, stats):
 
     print(s)
 
+def median_frequency_balancing(labels, num_classes):
+    labels = np.asarray(labels)
+
+    counts = np.bincount(labels, minlength=num_classes)
+    print(f"Labels: {labels}")
+    print(f"Counts: {counts}")
+    median_count = np.median(counts[counts > 0])
+
+    weights = median_count / counts
+    weights[counts == 0] = 0.0  # safety
+
+    return weights
 
 def print_stats(phase, stats):
     print_global_stats(phase, stats['global'])
@@ -69,11 +80,10 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
             if 'logits' in y and 'labels' in batch:
                 logits = y['logits']           # [B, num_labels]
                 labels = batch['labels'].squeeze().long() # [B]
-                weight_classes = [1.0, 1.0, 0.25]
+                weight_classes = median_frequency_balancing(labels.cpu(), 3)
                 weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=logits.device)
 
-                #ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
-                ce_fn = LearnableWeightedCrossEntropy(3, weight_classes)
+                ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
                 ce_loss = ce_fn(logits, labels)
                 stats['ce_loss'] = ce_loss.item()  # opcional, para logs
                 lambda_ce = PARAMS.cross_entropy_importance
@@ -147,11 +157,10 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
         total_loss = loss
         
         if PARAMS.use_cross_entropy:
-            weight_classes = [1.0, 1.0, 0.25]
+            weight_classes = median_frequency_balancing(labels.cpu(), 3)
             weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=clustering_logits.device)
 
-            #ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
-            ce_fn = LearnableWeightedCrossEntropy(3, weight_classes)
+            ce_fn = torch.nn.CrossEntropyLoss(weight=weight_classes)
             ce_loss = ce_fn(clustering_logits, labels.long())
             
             total_loss = total_loss + (PARAMS.cross_entropy_importance * ce_loss)

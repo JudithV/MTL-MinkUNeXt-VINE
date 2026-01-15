@@ -1,7 +1,7 @@
 # Miguel Hernández University of Elche
 # Institute for Engineering Research of Elche (I3E)
 # Automation, Robotics and Computer Vision lab (ARCV)
-# Author: Juan José Cabrera Mora
+# Author: Juan José Cabrera Mora & Judith Vilella Cantos
 
 import torch
 from config import PARAMS
@@ -243,7 +243,7 @@ class MinkUNeXt(ResNetBase):
         out = self.bn4(out)
         out = self.relu(out)
         out = self.block4(out)
-
+        classif_out = out
         # tensor_stride=8
         out = self.convtr4p16s2(out)
         out = self.bntr4(out)
@@ -256,20 +256,21 @@ class MinkUNeXt(ResNetBase):
         out = self.convtr5p8s2(out)
         descriptor = self.GeM_pool(out)
         if PARAMS.use_cross_entropy:
-            logits = self.classification_head(out.detach())
+            logits = self.classification_head(classif_out)
             return {'global': descriptor, 'logits': logits}
         else:
             return {'global': descriptor}
 
 class ClassificationHead(nn.Module):
-    def __init__(self, in_features=192, hidden_dim=None, n_classes=3, dropout=0.2):
+    def __init__(self, in_features=256, hidden_dim=None, n_classes=3, dropout=0.2):
         super().__init__()
         if hidden_dim is None:
             hidden_dim = max(in_features // 2, 32)
         self.mlp = nn.Sequential(
             ME.MinkowskiLinear(in_features, hidden_dim),
+            ME.MinkowskiBatchNorm(hidden_dim),
             ME.MinkowskiReLU(inplace=True),
-            ME.MinkowskiDropout(dropout),
+            #ME.MinkowskiDropout(dropout),
             ME.MinkowskiLinear(hidden_dim, n_classes)
         )
     def forward(self, x):

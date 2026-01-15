@@ -43,8 +43,8 @@ pos_margin: 0
 neg_margin: 1
 
 normalize_embeddings: False
-use_cross_entropy: True
-cross_entropy_importance: 1.0
+use_cross_entropy: False
+cross_entropy_importance: 0.25
 
 protocol: 'vmd'
 baseline:
@@ -100,8 +100,8 @@ vmd:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_Livox.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
-  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_Livox.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
+  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_VELO.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
+  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_VELO.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
 
 print:
   model_info: True

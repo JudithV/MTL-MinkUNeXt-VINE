@@ -144,7 +144,7 @@ def do_train(model):
     else:
         phases = ['train']
 
-    for epoch in tqdm.tqdm(range(1, PARAMS.epochs + 1)):
+    for epoch in tqdm.tqdm(range(start_epoch, PARAMS.epochs + 1)):
         metrics = {'train': {}, 'val': {}}      # Metrics for wandb reporting
         first_iter = True
         for phase in phases:
@@ -216,7 +216,14 @@ def do_train(model):
 
         #if params.save_freq > 0 and epoch % params.save_freq == 0:
         #    torch.save(model.state_dict(), model_pathname + "_" + str(epoch) + ".pth")
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss.item()
+        }
 
+        torch.save(checkpoint, checkpoint_path)
         if PARAMS.batch_expansion_th is not None:
             # Dynamic batch size expansion based on number of non-zero triplets
             # Ratio of non-zero triplets
