@@ -147,7 +147,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
     with torch.set_grad_enabled(phase == 'train'):
         if phase == 'train':
             embeddings.requires_grad_(True)
-            # IMPORTANTE: Habilitar gradientes para las salidas de clustering también
             if PARAMS.use_cross_entropy:
                 clustering_logits.requires_grad_(True)
 
@@ -165,7 +164,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             
             total_loss = total_loss + (PARAMS.cross_entropy_importance * ce_loss)
 
-        # Backward único para obtener gradientes de los EMBEDDINGS (no de la red aún)
         if phase == 'train':
             total_loss.backward()
             
@@ -173,12 +171,12 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             if PARAMS.use_cross_entropy:
                 clustering_logits_grad = clustering_logits.grad
 
-    # Limpieza
+    # Clean
     embeddings_l, embeddings, loss = None, None, None
     if PARAMS.use_cross_entropy:
         clustering_logits = None
 
-    # ---------------- Stage 3: Backpropagation a través del Backbone ----------------
+    # ---------------- Stage 3: Backpropagation through Backbone ----------------
     if phase == 'train':
         optimizer.zero_grad()
         i = 0
@@ -191,10 +189,7 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
                 embeddings_mb = y['global']
                 minibatch_size = embeddings_mb.shape[0]
                 
-                # Inyectar gradiente Global
                 if embeddings_grad is not None:
-                    # retain_graph=True es necesario porque vamos a hacer backward sobre la misma gráfica
-                    # para el clustering head justo después.
                     retain_graph = PARAMS.use_cross_entropy
                     embeddings_mb.backward(gradient=embeddings_grad[i: i+minibatch_size], retain_graph=retain_graph)
 
@@ -208,7 +203,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             optimizer.step()
 
     torch.cuda.empty_cache()
-    # Retorna memoria reservada, etc.
     return stats, 0, 0
 
 
