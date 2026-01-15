@@ -1,58 +1,42 @@
 import argparse
 import torch
 import torch.nn as nn
+#import PARAMS obejct from config.py in config file
 import sys
 import random
 import os
+# Get the current script's directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory by going one level up
 parent_dir = os.path.dirname(current_dir)
+# Add the parent directory to sys.path
 sys.path.append(parent_dir)
 from config import PARAMS 
 from trainer import *
 from model.minkunext import model
-#from model.segment_predictor import model_seg
 from losses.truncated_smoothap import TruncatedSmoothAP
-from losses.contrastive_loss import BatchHardContrastiveLossWithMasks
 import time
-from pytorch_metric_learning.distances import LpDistance
 import matplotlib.pyplot as plt
+
+LOAD_CHECKPOINT = False
 
 def get_datetime():
     return time.strftime("%Y%m%d_%H%M")
 
-def seed_everything(seed=42):
-    # 1. Fijar semilla de Python (librerías base)
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    
-    # 2. Fijar semilla de NumPy (preprocesamiento)
-    np.random.seed(seed)
-    
-    # 3. Fijar semilla de PyTorch (CPU y GPU)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed) # Si usas multi-GPU
-    
-    # 4. Configurar el backend de CUDNN (IMPORTANTE)
-    # Desactivar la búsqueda de algoritmos óptimos (puede variar)
-    torch.backends.cudnn.benchmark = False 
-    # Forzar el uso de algoritmos deterministas (más lento, pero reproducible)
-    torch.backends.cudnn.deterministic = True
-
 def do_train(model):
     # Create model class
-    if PARAMS.loss == 'TruncatedSmoothAP':
-        loss_fn = TruncatedSmoothAP(tau1=PARAMS.tau1, similarity=PARAMS.similarity,
-                                        positives_per_query=PARAMS.positives_per_query)
-    else:
-        distance = LpDistance(normalize_embeddings=PARAMS.normalize_embeddings)
-        loss_fn = BatchHardContrastiveLossWithMasks(pos_margin=PARAMS.pos_margin, neg_margin=PARAMS.neg_margin,
-                distance=distance)
-    seed_everything(42)
+    loss_fn = TruncatedSmoothAP(tau1=PARAMS.tau1, similarity=PARAMS.similarity,
+                                    positives_per_query=PARAMS.positives_per_query)
+
     s = get_datetime()
     model_name = 'MinkUNeXt_' + PARAMS.protocol + '_' + s
     weights_path = create_weights_folder()
+    checkpoint_name = model_name + "checkpoint.pth"
+    checkpoint_path = os.path.join(weights_path, checkpoint_name)
     model_pathname = os.path.join(weights_path, model_name)
+    start_epoch = 1
+
+    
     if PARAMS.print_model_info:
         print(model)
         n_params = sum([param.nelement() for param in model.parameters()])
@@ -120,19 +104,13 @@ def do_train(model):
     torch.cuda.manual_seed(42)
     np.random.seed(42)
     random.seed(42)
-
-    # Save seeds...
-    # Obtener la semilla actual de PyTorch
-    """torch_seed = torch.initial_seed()
-
-    # Obtener la semilla de Python
-    python_seed = random.getstate()
-
-    # Obtener la semilla de NumPy
-    numpy_seed = np.random.get_state()
-    with open("seeds.txt", 'a') as f:
-        line = model_name + ", Torch seed: " + str(torch_seed) +", Python: " + str(python_seed[1][0]) + ", Numpy: " + str(numpy_seed[1][0])
-        f.write(line)"""
+    
+    if LOAD_CHECKPOINT:
+        checkpoint = torch.load("weights/MinkUNeXt_vmd_20260113_1217checkpoint.pth", map_location=device)
+        print(checkpoint)
+        model.load_state_dict(checkpoint)
+        #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = 100 # checkpoint['epoch'] + 1
         
     # Training statistics
     stats = {'train': [], 'eval': []}
@@ -207,23 +185,18 @@ def do_train(model):
             if 'ap' in epoch_stats['global']:
                 metrics[phase]['AP'] = epoch_stats['global']['ap']
 
+        torch.save(model.state_dict(), checkpoint_path)
         # ******* FINALIZE THE EPOCH *******
         wandb.log(metrics)
-        #if epoch_stats['global']['recall'][1] == 1.0:
-            #break
+        if epoch_stats['global']['recall'][1] == 1.0:
+            break
         if scheduler is not None:
             scheduler.step()
 
         #if params.save_freq > 0 and epoch % params.save_freq == 0:
         #    torch.save(model.state_dict(), model_pathname + "_" + str(epoch) + ".pth")
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss.item()
-        }
 
-        torch.save(checkpoint, checkpoint_path)
+
         if PARAMS.batch_expansion_th is not None:
             # Dynamic batch size expansion based on number of non-zero triplets
             # Ratio of non-zero triplets
