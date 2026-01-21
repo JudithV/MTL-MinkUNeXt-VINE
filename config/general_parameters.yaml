@@ -15,17 +15,10 @@ val_batch_size: 4 # 32
 
 format_point_cloud: 'csv' #'bin' | 'csv'
 
-spherical_coords: False
 normalize: True
-use_intensity: False
-process_intensity: False
-equalize_intensity: False
-correct_intensity: False
 use_downsampled: False
 min_distance: 2
 max_distance: 60 # 60
-
-use_2D: False # BLT 2D LiDAR
 
 optimizer: 'Adam' # Adam or AdamW
 initial_lr: 0.001
@@ -43,8 +36,8 @@ pos_margin: 0
 neg_margin: 1
 
 normalize_embeddings: False
-use_cross_entropy: False
-cross_entropy_importance: 0.25
+use_cross_entropy: True
+cross_entropy_importance: 0.75
 
 protocol: 'vmd'
 baseline:
@@ -100,8 +93,8 @@ vmd:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_VELO.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
-  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_VELO.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
+  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_Livox.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
+  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_Livox.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
 
 print:
   model_info: True

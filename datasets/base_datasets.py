@@ -76,14 +76,6 @@ class TrainingDataset(Dataset):
         query_pc['reflec'] = query_pc['reflec'].reshape([-1,1])
         if self.transform is not None:
             query_pc['cloud'] = self.transform(query_pc['cloud'])
-        #print("Num puntos nube: ",len(query_pc['cloud']))
-        """padlen = PARAMS.num_points - len(query_pc['cloud'])
-        if padlen > 0:
-            query_pc['cloud'] = torch.nn.functional.pad(query_pc['cloud'], (0, 0, 0, padlen), "constant", 0)
-            query_pc['reflec'] = torch.nn.functional.pad(query_pc['reflec'], (0, 0, 0, padlen), "constant", 0)
-        elif padlen < 0:
-            query_pc['cloud'] = query_pc['cloud'][:n_points]
-            query_pc['reflec'] = query_pc['reflec'][:n_points]"""
         
         return query_pc, ndx
 
@@ -191,10 +183,3 @@ class PointCloudLoader:
         # Reads the point cloud without pre-processing
         raise NotImplementedError("read_pc must be overloaded in an inheriting class")
     
-    def read_reflec(self, file_pathname: str):
-        # Reads the point cloud reflectivity value
-        raise NotImplementedError("read_reflec must be overloaded in an inheriting class")
-    
-    def read_intensity(self, file_pathname: str):
-        # Reads the point cloud reflectivity value
-        raise NotImplementedError("read_intensity must be overloaded in an inheriting class")

@@ -95,12 +95,12 @@ def construct_query_and_database_sets(base_path, runs_folder, folders, pointclou
         #df_locations=df_locations.rename(columns={'timestamp':'file'})
         for index, row in df_locations.iterrows():
             if output_name == "vmd":
-                """if check_in_test_set(row['easting'], row['northing'], p):
-                    df_test = df_test.append(row, ignore_index=True)"""
+                if check_in_test_set(row['easting'], row['northing'], p):
+                    df_test = df_test.append(row, ignore_index=True)
                 """if i % 2 == 0:
                     df_test = df_test.append(row, ignore_index=True)"""
-                if "run2" in folder:
-                    df_test = df_test.append(row, ignore_index=True)
+                """if "run2" in folder:
+                    df_test = df_test.append(row, ignore_index=True)"""
             else:
                 if check_in_test_set(row['northing'], row['easting'], p):
                     df_test = df_test.append(row, ignore_index=True)
@@ -137,12 +137,12 @@ def construct_query_and_database_sets(base_path, runs_folder, folders, pointclou
             else:
                 label = -1
             if output_name == "vmd":
-                """if check_in_test_set(row['easting'], row['northing'], p):
-                    test[len(test.keys())] = {'query': row['file'], 'northing': row['northing'], 'easting': row['easting'], 'label': label}"""
+                if check_in_test_set(row['easting'], row['northing'], p):
+                    test[len(test.keys())] = {'query': row['file'], 'northing': row['northing'], 'easting': row['easting'], 'label': label}
                 """if i % 2 == 0:
                     test[len(test.keys())] = {'query': row['file'], 'northing': row['northing'], 'easting': row['easting'], 'label': label}"""
-                if "run2" in folder:
-                    test[len(test.keys())] = {'query': row['file'], 'northing': row['northing'], 'easting': row['easting'], 'label': label}
+                """if "run2" in folder:
+                    test[len(test.keys())] = {'query': row['file'], 'northing': row['northing'], 'easting': row['easting'], 'label': label}"""
             else:
                 if check_in_test_set(row['northing'], row['easting'], p):
                     test[len(test.keys())] = {'query': row['file'], 'northing': row['northing'], 'easting': row['easting'], 'label': label}
@@ -159,8 +159,8 @@ def construct_query_and_database_sets(base_path, runs_folder, folders, pointclou
     for i in range(len(database_sets)):
         tree = database_trees[i]
         for j in range(len(test_sets)):
-            """if i == j:
-                continue"""
+            if i == j:
+                continue
             for key in range(len(test_sets[j].keys())):
                 coor = np.array([[test_sets[j][key]["northing"], test_sets[j][key]["easting"]]])
                 index = tree.query_radius(coor, r=5) 
@@ -208,8 +208,8 @@ if __name__ == '__main__':
     for folder in all_folders:
         if "run2_02_p" in folder: #run3
             continue
-        if "_01_" not in folder:
-            continue
+        """if "_01_" not in folder:
+            continue"""
         if os.path.exists(os.path.join(base_path, runs_folder + "pergola/" + folder)):
             folders.append("pergola/"+folder)
         else:

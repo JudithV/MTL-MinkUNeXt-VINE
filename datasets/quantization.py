@@ -12,7 +12,6 @@ parent_dir = os.path.dirname(current_dir)
 # Add the parent directory to sys.path
 sys.path.append(parent_dir)
 from config import PARAMS
-from datasets.spherical_coords import SphericalCoords
 
 class Quantizer(ABC):
     @abstractmethod
@@ -53,9 +52,6 @@ class CartesianQuantizer(Quantizer):
         # Converts to polar coordinates and quantizes with different step size for each coordinate
         # pc: (N, 3) point cloud with Cartesian coordinates (X, Y, Z)
         assert pc.shape[1] == 3
-        """if PARAMS.spherical_coords:
-            pc = SphericalCoords.to_spherical(pc, PARAMS.protocol)
-            pc = torch.tensor(pc, dtype=torch.float)"""
         quantized_pc, ndx = ME.utils.sparse_quantize(pc.contiguous(), quantization_size=self.quant_step, return_index=True)
         # Return quantized coordinates and index of selected elements
         return quantized_pc, ndx

@@ -309,7 +309,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f"Error deleting {f}: {e}")"""
             
-    i = 0
+    """i = 0
     for folder in tqdm.tqdm(folders):
         df_triplet = pd.DataFrame(columns=['file', 'northing', 'easting'])
         if "run2_03_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
@@ -328,18 +328,18 @@ if __name__ == '__main__':
         df_locations = df_locations.rename(columns={'timestamp': 'file'})
 
         for index, row in df_locations.iterrows():
-            """if check_in_test_set(row['easting'], row['northing'], P): # iter == (len(all_folders) - 1)
+            if check_in_test_set(row['easting'], row['northing'], P): # iter == (len(all_folders) - 1)
                 df_test = df_test.append(row, ignore_index=True)
             else:
-                df_train = df_train.append(row, ignore_index=True)"""
+                df_train = df_train.append(row, ignore_index=True)
             if "run2" in folder:
                 df_test = df_test.append(row, ignore_index=True)
             else:
                 df_train = df_train.append(row, ignore_index=True)
-            """if i % 2 == 0:
+            if i % 2 == 0:
                 df_test = df_test.append(row, ignore_index=True)
             else:
-                df_train = df_train.append(row, ignore_index=True)"""
+                df_train = df_train.append(row, ignore_index=True)
             i += 1
 
     print("Number of training submaps: " + str(len(df_train['file'])))
@@ -352,7 +352,7 @@ if __name__ == '__main__':
     # ind_nn_r is a threshold for positive elements - 10 is in original PointNetVLAD code for refined dataset
     train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_feb_runs_Livox.pickle")
     #plot_split_for_anchor(df_train, train_queries, "scans_train_set.png")
-    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_feb_runs_Livox.pickle")
+    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_feb_runs_Livox.pickle")"""
     #plot_split_for_anchor(df_test, test_queries, "scans_test_set.png")"""
 
     #train_queries = construct_query_dict_pnv(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_all_zones_VELO_PNV.pickle")

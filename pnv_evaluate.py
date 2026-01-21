@@ -181,14 +181,8 @@ def compute_embedding(model, pc, reflec, device):
         bcoords = ME.utils.batched_coordinates([quantized_coords]).to(device)
 
         # ===== FEATURES =====
-        if not PARAMS.use_intensity:
-            # Use ones as feature vector, same shape as quantized coords
-            feats = torch.ones((quantized_coords.shape[0], 1), dtype=torch.float32)
-        else:
-            # Use intensity
-            feats = quantized_feats
-            if feats.dim() == 1:
-                feats = feats.unsqueeze(1)
+        # Use ones as feature vector, same shape as quantized coords
+        feats = torch.ones((quantized_coords.shape[0], 1), dtype=torch.float32)
 
         # Pack batch
         batch = {

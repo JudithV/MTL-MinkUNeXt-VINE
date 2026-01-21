@@ -63,125 +63,57 @@ def make_collate_fn(dataset: TrainingDataset, quantizer,batch_split_size=None):
     def collate_fn(data_list):
         # Constructs a batch object
 
-        # USE INTENSITY
-        if PARAMS.use_intensity:
-            clouds = [e[0]['cloud'] for e in data_list]
-            reflecs = [e[0]['reflec'] for e in data_list]
+        # Constructs a batch object
+        clouds = [e[0]['cloud'] for e in data_list]
+        labels = [e[1] for e in data_list]
+        if PARAMS.use_cross_entropy:
+            segments = [e[0]['labels'] for e in data_list]
+        if dataset.set_transform is not None:
+            # Apply the same transformation on all dataset elements
+            lens = [len(cloud) for cloud in clouds]
+            clouds = torch.cat(clouds, dim=0)
+            clouds = dataset.set_transform(clouds)
+            clouds = clouds.split(lens)
+
+        # Compute positives and negatives mask
+        # dataset.queries[label]['positives'] is bitarray
+        positives_mask = [[in_sorted_array(e, dataset.queries[label].positives) for e in labels] for label in labels]
+        negatives_mask = [[not in_sorted_array(e, dataset.queries[label].non_negatives) for e in labels] for label in labels]
+        positives_mask = torch.tensor(positives_mask)
+        negatives_mask = torch.tensor(negatives_mask)
+
+        # Convert to polar (when polar coords are used) and quantize
+        # Use the first value returned by quantizer
+        coords = [quantizer(e)[0] for e in clouds]
+
+        if batch_split_size is None or batch_split_size == 0:
+            coords = ME.utils.batched_coordinates(coords)
+            # Assign a dummy feature equal to 1 to each point
+            feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
             if PARAMS.use_cross_entropy:
-                segments = [e[0]['labels'] for e in data_list]
-            labels = [e[1] for e in data_list]
-            if dataset.set_transform is not None:
-                lens_c = [len(cloud) for cloud in clouds]
-                clouds = torch.cat(clouds, dim=0)
-                lens_r = [len(reflec) for reflec in reflecs]
-                reflecs = torch.cat(reflecs, dim=0) 
-                # Apply the same transformation on all dataset elements
-                clouds = dataset.set_transform(clouds)
-                clouds = clouds.split(lens_c)
-                reflecs = reflecs.split(lens_r)
-            # Compute positives and negatives mask
-            # dataset.queries[label]['positives'] is bitarray
-            positives_mask = [[in_sorted_array(e, dataset.queries[label].positives) for e in labels] for label in labels]
-            negatives_mask = [[not in_sorted_array(e, dataset.queries[label].non_negatives) for e in labels] for label in labels]
-            positives_mask = torch.tensor(positives_mask)
-            negatives_mask = torch.tensor(negatives_mask)
-    
-
-            # Convert to polar (when polar coords are used) and quantize
-            # Use the first value returned by quantizer
-            coords = []
-            feats = []
-            for cloud, reflec in zip(clouds, reflecs):
-                #reflec = reflec.reshape([-1, 1])
-                quatizated = ME.utils.sparse_quantize(coordinates=cloud.contiguous(), features=reflec, quantization_size=PARAMS.quantization_size)
-                coords.append(quatizated[0])
-                feats.append(quatizated[1])
-
-            if batch_split_size is None or batch_split_size == 0:
-                coords = ME.utils.batched_coordinates(coords)
-                unos = torch.ones((coords.shape[0], 1), dtype=torch.float32)
-                feats = torch.cat(feats, dim=0)
-                #feats_composed = torch.cat(feats_composed, dim=0)
-                feats_doble = torch.cat((unos, feats), dim = 1)
-                if PARAMS.use_cross_entropy:
-                    pointcloud_batch = {'coords': coords, 'features': feats, 'labels': segments}
-                else:
-                    pointcloud_batch = {'coords': coords, 'features': feats}
+                batch = {'coords': coords, 'features': feats, 'labels': segments}
             else:
-                # Split the batch into chunks
-                pointcloud_batch = []
-                for i in range(0, len(coords), batch_split_size):
-                    temp_coords = coords[i:i + batch_split_size]
-                    temp_feats = feats[i:i + batch_split_size]
-                    #temp_feats_composed = feats_composed[i:i + batch_split_size]
-                    feats_r = torch.cat(temp_feats, dim=0)
-                    #feats_c = torch.cat(temp_feats_composed, dim=0)
-                    c = ME.utils.batched_coordinates(temp_coords)
-                    unos = torch.ones((c.shape[0], 1), dtype=torch.float32)
-                    f_2 = torch.cat((unos, feats_r), dim = 1)
-                    if PARAMS.use_cross_entropy:
-                        temp_labels = segments[i:i + batch_split_size]
-                        feats_l = torch.cat(temp_labels, dim=0)
-                        pointcloud_minibatch = {'coords': c, 'features': feats_r, 'labels': feats_l}
-                    else:
-                        pointcloud_minibatch = {'coords': c, 'features': feats_r}
-                    pointcloud_batch.append(pointcloud_minibatch)
+                batch = {'coords': coords, 'features': feats}
 
-            return pointcloud_batch, positives_mask, negatives_mask
-
-        # SIN REFLECTIVIDAD
         else:
-            # Constructs a batch object
-            clouds = [e[0]['cloud'] for e in data_list]
-            labels = [e[1] for e in data_list]
-            if PARAMS.use_cross_entropy:
-                segments = [e[0]['labels'] for e in data_list]
-            if dataset.set_transform is not None:
-                # Apply the same transformation on all dataset elements
-                lens = [len(cloud) for cloud in clouds]
-                clouds = torch.cat(clouds, dim=0)
-                clouds = dataset.set_transform(clouds)
-                clouds = clouds.split(lens)
-
-            # Compute positives and negatives mask
-            # dataset.queries[label]['positives'] is bitarray
-            positives_mask = [[in_sorted_array(e, dataset.queries[label].positives) for e in labels] for label in labels]
-            negatives_mask = [[not in_sorted_array(e, dataset.queries[label].non_negatives) for e in labels] for label in labels]
-            positives_mask = torch.tensor(positives_mask)
-            negatives_mask = torch.tensor(negatives_mask)
-
-            # Convert to polar (when polar coords are used) and quantize
-            # Use the first value returned by quantizer
-            coords = [quantizer(e)[0] for e in clouds]
-
-            if batch_split_size is None or batch_split_size == 0:
-                coords = ME.utils.batched_coordinates(coords)
-                # Assign a dummy feature equal to 1 to each point
-                feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
+            # Split the batch into chunks
+            batch = []
+            for i in range(0, len(coords), batch_split_size):
+                temp = coords[i:i + batch_split_size]
+                c = ME.utils.batched_coordinates(temp)
+                f = torch.ones((c.shape[0], 1), dtype=torch.float32)
                 if PARAMS.use_cross_entropy:
-                    batch = {'coords': coords, 'features': feats, 'labels': segments}
+                    temp_labels = segments[i:i + batch_split_size]
+                    feats_l = torch.cat(temp_labels, dim=0)
+                    minibatch = {'coords': c, 'features': f, 'labels': feats_l}
                 else:
-                    batch = {'coords': coords, 'features': feats}
+                    minibatch = {'coords': c, 'features': f}
+                batch.append(minibatch)
 
-            else:
-                # Split the batch into chunks
-                batch = []
-                for i in range(0, len(coords), batch_split_size):
-                    temp = coords[i:i + batch_split_size]
-                    c = ME.utils.batched_coordinates(temp)
-                    f = torch.ones((c.shape[0], 1), dtype=torch.float32)
-                    if PARAMS.use_cross_entropy:
-                        temp_labels = segments[i:i + batch_split_size]
-                        feats_l = torch.cat(temp_labels, dim=0)
-                        minibatch = {'coords': c, 'features': f, 'labels': feats_l}
-                    else:
-                        minibatch = {'coords': c, 'features': f}
-                    batch.append(minibatch)
-
-            # Returns (batch_size, n_points, 3) tensor and positives_mask and negatives_mask which are
-            # batch_size x batch_size boolean tensors
-            #return batch, positives_mask, negatives_mask, torch.tensor(sampled_positive_ndx), torch.tensor(relative_poses)
-            return batch, positives_mask, negatives_mask
+        # Returns (batch_size, n_points, 3) tensor and positives_mask and negatives_mask which are
+        # batch_size x batch_size boolean tensors
+        #return batch, positives_mask, negatives_mask, torch.tensor(sampled_positive_ndx), torch.tensor(relative_poses)
+        return batch, positives_mask, negatives_mask
 
     return collate_fn
 

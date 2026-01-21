@@ -28,17 +28,11 @@ class Config():
 
             self.format_point_cloud = config.get('format_point_cloud')
             
-            self.spherical_coords = config.get('spherical_coords')
             self.normalize = config.get('normalize')
-            self.use_intensity = config.get('use_intensity')
-            self.equalize_intensity = config.get('equalize_intensity')
-            self.process_intensity = config.get('process_intensity')
-            self.correct_intensity = config.get('correct_intensity')
             self.use_downsampled = config.get('use_downsampled')
             self.min_distance = config.get('min_distance')
             self.max_distance = config.get('max_distance')
 
-            self.use_2D = config.get('use_2D')
             
             self.optimizer = config.get('optimizer')
             self.initial_lr = config.get('initial_lr')
