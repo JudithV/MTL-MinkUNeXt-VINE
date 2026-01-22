@@ -5,10 +5,12 @@
 import pandas as pd
 import numpy as np
 import utm
+import os
 from sklearn.decomposition import PCA
+from config import PARAMS
 
 # Load ground truth
-df = pd.read_csv('blt/ktima/2022-04-06-11-02-34/robot0/gps0/data.csv') # vmd/vineyard/run3_10_v/gps.csv
+df = pd.read_csv(os.path.join(PARAMS.dataset_folder, 'vmd/vineyard/run1_04_v/gps.csv')) # blt/ktima/2022-04-06-11-02-34/robot0/gps0/data.csv
 utm_coords = np.array([utm.from_latlon(lon, lat)[:2] for lat, lon in zip(df['latitude'], df['longitude'])])
 x_coords, y_coords = utm_coords[:, 0], utm_coords[:, 1]
 
@@ -28,10 +30,11 @@ intra_row = ~(lower_extreme | upper_extreme)
 
 # Asign labels to all timestamps
 segment_labels = np.zeros(len(x_coords), dtype=int)
-segment_labels[extremo_inferior] = 0
-segment_labels[extremo_superior] = 1
-segment_labels[interior] = 2
+segment_labels[lower_extreme] = 0
+segment_labels[upper_extreme] = 1
+segment_labels[intra_row] = 2
 
 # Save labeled data
 df['segment'], df['type'] = segment_labels, "V" # Type "V" for trellis, "P" for pergola
-df.to_csv('blt/ktima/2022-04-06-11-02-34/robot0/gps0/data.csv', index=False) # vmd/vineyard/run3_10_v/gps.csv
+df.to_csv(os.path.join(PARAMS.dataset_folder, 'vmd/vineyard/run1_04_v/gps.csv'), index=False) # blt/ktima/2022-04-06-11-02-34/robot0/gps0/data.csv
+
