@@ -31,7 +31,7 @@ P = [P26, P27, P28, P29]
 RUNS_FOLDER = "vmd/"
 FILENAME_GPS = "gps.csv"
 FILENAME = "data.csv"
-POINTCLOUD_FOLS = "pointcloud/lidar3d_1/"
+POINTCLOUD_FOLS = "pointcloud/lidar3d_0/"
 USE_GPS = True
 USE_SEGMENT = True
 
@@ -258,13 +258,13 @@ if __name__ == '__main__':
     for folder in tqdm.tqdm(folders):
         if "run2_02_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
             continue
-        """if "_01_" not in folder:
-            continue"""
+        if "_04_" not in folder:
+            continue
         files, scantimes_pcds, ref_times, scan_times, utm_pos = [], [], [], [], []
         if os.path.exists(base_path+RUNS_FOLDER+"pergola/"+folder):
             run_path = os.path.join(base_path, RUNS_FOLDER,"pergola", folder)
         
-        elif os.path.exists(base_path+RUNS_FOLDER+"vineyard/"+folder):
+        elif os.path.exists(os.path.join(base_path,RUNS_FOLDER,"vineyard",folder)):
             print(RUNS_FOLDER+"vineyard/"+folder)
             run_path = os.path.join(base_path,RUNS_FOLDER,"vineyard",folder)
             print(run_path)
@@ -309,18 +309,18 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f"Error deleting {f}: {e}")"""
             
-    """i = 0
+    i = 0
     for folder in tqdm.tqdm(folders):
         df_triplet = pd.DataFrame(columns=['file', 'northing', 'easting'])
         if "run2_03_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
             continue
-        if "_01_" not in folder:
+        if "_01_" not in folder and "_02_" not in folder and "_03_" not in folder:
             continue
-        if os.path.exists(RUNS_FOLDER + "pergola/" + folder):
-            run_path = os.path.join(RUNS_FOLDER,"pergola",folder)
-        elif os.path.exists(RUNS_FOLDER + "vineyard/" + folder):
-            run_path = os.path.join(RUNS_FOLDER,"vineyard",folder)
-
+        if os.path.exists(os.path.join(base_path,RUNS_FOLDER,"pergola",folder)):
+            run_path = os.path.join(base_path,RUNS_FOLDER,"pergola",folder)
+        elif os.path.exists(os.path.join(base_path,RUNS_FOLDER,"vineyard",folder)):
+            run_path = os.path.join(base_path,RUNS_FOLDER,"vineyard",folder)
+        print(run_path)
         df_locations = pd.read_csv(os.path.join(base_path, run_path, FILENAME), sep=',')
         df_locations['timestamp'] = df_locations['timestamp'].astype(str).apply(lambda x: os.path.join(run_path, POINTCLOUD_FOLS, x + '.csv'))
         total_rows = len(df_locations)
@@ -332,14 +332,14 @@ if __name__ == '__main__':
                 df_test = df_test.append(row, ignore_index=True)
             else:
                 df_train = df_train.append(row, ignore_index=True)
-            if "run2" in folder:
+            """if "run2" in folder:
                 df_test = df_test.append(row, ignore_index=True)
             else:
-                df_train = df_train.append(row, ignore_index=True)
-            if i % 2 == 0:
+                df_train = df_train.append(row, ignore_index=True)"""
+            """if i % 2 == 0:
                 df_test = df_test.append(row, ignore_index=True)
             else:
-                df_train = df_train.append(row, ignore_index=True)
+                df_train = df_train.append(row, ignore_index=True)"""
             i += 1
 
     print("Number of training submaps: " + str(len(df_train['file'])))
@@ -350,9 +350,9 @@ if __name__ == '__main__':
     print("Vineyard count in test: ", df_test["file"].str.count("vineyard").sum())
 
     # ind_nn_r is a threshold for positive elements - 10 is in original PointNetVLAD code for refined dataset
-    train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_feb_runs_Livox.pickle")
+    train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_early_zones_VELO.pickle")
     #plot_split_for_anchor(df_train, train_queries, "scans_train_set.png")
-    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_feb_runs_Livox.pickle")"""
+    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_early_zones_VELO.pickle")
     #plot_split_for_anchor(df_test, test_queries, "scans_test_set.png")"""
 
     #train_queries = construct_query_dict_pnv(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_all_zones_VELO_PNV.pickle")

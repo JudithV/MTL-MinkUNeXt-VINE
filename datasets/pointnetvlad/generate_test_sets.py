@@ -208,12 +208,12 @@ if __name__ == '__main__':
     for folder in all_folders:
         if "run2_02_p" in folder: #run3
             continue
-        """if "_01_" not in folder:
-            continue"""
+        if "_01_" not in folder and "_02_" not in folder and "_03_" not in folder:
+            continue
         if os.path.exists(os.path.join(base_path, runs_folder + "pergola/" + folder)):
             folders.append("pergola/"+folder)
         else:
             folders.append("vineyard/"+folder)
     
-    construct_query_and_database_sets(base_path, runs_folder, folders, "/pointcloud/lidar3d_1/",
+    construct_query_and_database_sets(base_path, runs_folder, folders, "/pointcloud/lidar3d_0/",
                                       "data.csv", P_DICT["vmd"], "vmd")

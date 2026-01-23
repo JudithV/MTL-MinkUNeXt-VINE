@@ -256,21 +256,20 @@ class MinkUNeXt(ResNetBase):
         out = self.convtr5p8s2(out)
         descriptor = self.GeM_pool(out)
         if PARAMS.use_cross_entropy:
-            logits = self.classification_head(classif_out)
-            return {'global': descriptor, 'logits': logits}
+            logits, batch_idx = self.classification_head(classif_out)
+            return {'global': descriptor, 'logits': logits, 'batch_idx': batch_idx}
         else:
             return {'global': descriptor}
-
 class ClassificationHead(nn.Module):
     def __init__(self, in_features=256, hidden_dim=None, n_classes=3, dropout=0.2):
         super().__init__()
         if hidden_dim is None:
             hidden_dim = max(in_features // 2, 32)
+        
         self.mlp = nn.Sequential(
             ME.MinkowskiLinear(in_features, hidden_dim),
             ME.MinkowskiBatchNorm(hidden_dim),
-            ME.MinkowskiReLU(inplace=True),
-            #ME.MinkowskiDropout(dropout),
+            ME.MinkowskiReLU(inplace=True), 
             ME.MinkowskiLinear(hidden_dim, n_classes)
         )
     def forward(self, x):
@@ -279,25 +278,24 @@ class ClassificationHead(nn.Module):
         batch_idxs = out.C[:, 0].long()  # (N_points,)
 
         # pooling por scan
-        B = batch_idxs.max().item() + 1
+        unique_idxs = torch.unique(batch_idxs)
+        B = unique_idxs.max().item() + 1
         C = logits.shape[1]
         device = logits.device
 
         pooled = torch.zeros(B, C, device=device)
         counts = torch.zeros(B, device=device)
 
-        pooled.scatter_add_(0,
-            batch_idxs.unsqueeze(1).expand(-1, C),
-            logits
-        )
-        counts.scatter_add_(0,
-            batch_idxs,
-            torch.ones_like(batch_idxs, dtype=torch.float, device=device)
-        )
+        idx_map = {int(u): i for i, u in enumerate(unique_idxs.cpu().numpy())}
+        mapped = batch_idxs.cpu().apply_(lambda x: idx_map[int(x)]).to(device)
 
+        pooled.scatter_add_(0, mapped.unsqueeze(1).expand(-1, C), logits)
+        counts.scatter_add_(0, mapped, torch.ones_like(mapped, dtype=torch.float, device=device))
+
+        counts = counts.clamp(min=1.0)
         pooled = pooled / counts.unsqueeze(1)
 
-        return pooled
+        return pooled, unique_idxs
 
 model = MinkUNeXt(in_channels=1, out_channels=192, D=3)
 

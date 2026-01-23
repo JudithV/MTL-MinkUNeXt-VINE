@@ -80,6 +80,7 @@ def training_step(global_iter, model, phase, device, optimizer, loss_fn):
             if 'logits' in y and 'labels' in batch:
                 logits = y['logits']           # [B, num_labels]
                 labels = batch['labels'].squeeze().long() # [B]
+                labels = labels[y['batch_idx']]
                 weight_classes = median_frequency_balancing(labels.cpu(), 3)
                 weight_classes = torch.tensor(weight_classes, dtype=torch.float32, device=logits.device)
 
@@ -120,16 +121,17 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
     if PARAMS.use_cross_entropy:
         clustering_logits_l = []
         labels_l = []
+        batch_idx_l = []
     
     with torch.set_grad_enabled(False):
         for minibatch in batch:
             minibatch = {e: minibatch[e].to(device) for e in minibatch}
             y = model(minibatch)
             embeddings_l.append(y['global'])
-            if PARAMS.use_cross_entropy:
+            if PARAMS.use_cross_entropy and 'labels' in minibatch:
                 clustering_logits_l.append(y['logits'])
-                if 'labels' in minibatch:
-                    labels_l.append(minibatch['labels'].to(device))
+                labels_l.append(minibatch['labels'].to(device))
+                batch_idx_l.append(y['batch_idx'])
 
     torch.cuda.empty_cache()  # Prevent excessive GPU memory consumption by SparseTensors
 
@@ -141,8 +143,9 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
 
     if PARAMS.use_cross_entropy:
         clustering_logits = torch.cat(clustering_logits_l, dim=0)
-        if len(labels_l) > 0:
-            labels = torch.cat(labels_l, dim=0) 
+        labels = torch.cat(labels_l, dim=0) 
+        batch_idx = torch.cat(batch_idx_l, dim=0)
+        labels = labels[batch_idx]
 
     with torch.set_grad_enabled(phase == 'train'):
         if phase == 'train':

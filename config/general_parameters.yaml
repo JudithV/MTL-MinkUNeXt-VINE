@@ -1,4 +1,4 @@
-dataset_folder: '/home/arvc/Judith/MinkUNeXt-main/' # '/home/arvc/Judith/MinkUNeXt-main'
+dataset_folder: '/media/arvc/HDD4TB/Judith/MinkUNeXt-VINE/' # '/home/arvc/Judith/MinkUNeXt-main'
 cuda_device: 'cuda:1' # 'cuda:0' or 'cuda:1'
 
 patience: 40
@@ -37,7 +37,7 @@ neg_margin: 1
 
 normalize_embeddings: False
 use_cross_entropy: True
-cross_entropy_importance: 0.75
+cross_entropy_importance: 0.5
 
 protocol: 'vmd'
 baseline:
@@ -93,8 +93,8 @@ vmd:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/vmd/training_queries_vmd_feb_runs_Livox.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
-  val_file: train_test_sets/vmd/test_queries_vmd_feb_runs_Livox.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
+  train_file: train_test_sets/vmd/training_queries_vmd_early_zones_VELO.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
+  val_file: train_test_sets/vmd/test_queries_vmd_early_zones_VELO.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
 
 print:
   model_info: True
@@ -102,4 +102,4 @@ print:
   debug: False
 
 evaluate:
-  weights_path: '/home/arvc/Judith/MinkUNeXt-main/weights/MinkUNeXt_vmd_20251227_0914_final.pth'
+  weights_path: '/media/arvc/HDD4TB/Judith/MTL-MinkUNeXt-VINE/weights/MinkUNeXt_vmd_20260123_1225_final.pth'
