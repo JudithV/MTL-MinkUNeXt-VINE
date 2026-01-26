@@ -154,11 +154,13 @@ class PointCloudLoader:
         assert os.path.exists(file_pathname), f"Cannot open point cloud: {file_pathname}"
         pc, reflec = self.read_pc(self.device, file_pathname)
         if PARAMS.use_cross_entropy:
-            path_labels = Path(file_pathname).parents[2]
+            if PARAMS.protocol == 'vmd':
+                path_labels = Path(file_pathname).parents[2]
+            else:
+                path_labels = Path(file_pathname).parents[3]
             df = pd.read_csv(path_labels / "data.csv", dtype={'timestamp': str})
 
             name_without_ext = Path(file_pathname).stem
-            
             row = df.loc[df['timestamp'] == name_without_ext]
 
             labels = row['segment'].to_numpy()

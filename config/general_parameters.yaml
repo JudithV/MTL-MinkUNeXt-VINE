@@ -39,7 +39,7 @@ normalize_embeddings: False
 use_cross_entropy: True
 cross_entropy_importance: 0.5
 
-protocol: 'vmd'
+protocol: 'blt'
 baseline:
   epochs: 400
   scheduler_milestones: [250, 350]
@@ -86,15 +86,15 @@ blt:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/blt/training_queries_blt_Ktima_3D_autumn.pickle
-  val_file: train_test_sets/blt/test_queries_blt_Ktima_3D_autumn.pickle
+  train_file: train_test_sets/blt/training_queries_blt_Ktima_3D_march.pickle
+  val_file: train_test_sets/blt/test_queries_blt_Ktima_3D_march.pickle
 
 vmd:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/vmd/training_queries_vmd_early_zones_VELO.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
-  val_file: train_test_sets/vmd/test_queries_vmd_early_zones_VELO.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
+  train_file: train_test_sets/vmd/training_queries_vmd_sept_zones_VELO.pickle # training_queries_vmd_feb-sept_zones_VELO.pickle
+  val_file: train_test_sets/vmd/test_queries_vmd_sept_zones_VELO.pickle # test_queries_vmd_feb-sept_zones_VELO.pickle
 
 print:
   model_info: True
@@ -102,4 +102,4 @@ print:
   debug: False
 
 evaluate:
-  weights_path: '/media/arvc/HDD4TB/Judith/MTL-MinkUNeXt-VINE/weights/MinkUNeXt_vmd_20260123_1225_final.pth'
+  weights_path: '/media/arvc/HDD4TB/Judith/MTL-MinkUNeXt-VINE/weights/MinkUNeXt_vmd_20260126_0922_final.pth'

@@ -16,8 +16,8 @@ sys.path.append(parent_dir)
 from config import PARAMS
 
 # For training and test data splits, BLT = 13, VMD = 23
-X_WIDTH = 23
-Y_WIDTH = 23
+X_WIDTH = 13
+Y_WIDTH = 13
 
 # BLT
 #KTIMA
@@ -159,8 +159,8 @@ def construct_query_and_database_sets(base_path, runs_folder, folders, pointclou
     for i in range(len(database_sets)):
         tree = database_trees[i]
         for j in range(len(test_sets)):
-            if i == j:
-                continue
+            """if i == j:
+                continue"""
             for key in range(len(test_sets[j].keys())):
                 coor = np.array([[test_sets[j][key]["northing"], test_sets[j][key]["easting"]]])
                 index = tree.query_radius(coor, r=5) 
@@ -179,17 +179,19 @@ if __name__ == '__main__':
     base_path = PARAMS.dataset_folder
                                       
     # For BLT
-    """folders = []
+    folders = []
     runs_folder = "blt/"
     
     # Process the two different scenarios within the dataset
     all_folders = sorted(os.listdir(os.path.join(base_path, runs_folder + "ktima/"))) #+ sorted(os.listdir(os.path.join(base_path, runs_folder + "riseholme/")))
     for folder in all_folders:
+        if "2022-03-" not in folder:
+            continue
         if os.path.exists(os.path.join(base_path, runs_folder + "ktima/" + folder)):
             folders.append("ktima/"+folder)
     
     construct_query_and_database_sets(base_path, runs_folder, folders, "/robot0/lidar_3d/data/",
-                                      "data.csv", P_DICT["blt-ktima"], "blt")"""
+                                      "data.csv", P_DICT["blt-ktima"], "blt")
     """folders = []
     for folder in all_folders:
             if folder != "session0" and folder != "session1" and os.path.exists(os.path.join(base_path, runs_folder + "riseholme/" + folder)):
@@ -199,7 +201,7 @@ if __name__ == '__main__':
     
 
     # For VMD (TEMPO-VINE)
-    folders = []
+    """folders = []
     runs_folder = "vmd/"
     
     # To process the two different scenarios within the dataset use the following line
@@ -208,7 +210,7 @@ if __name__ == '__main__':
     for folder in all_folders:
         if "run2_02_p" in folder: #run3
             continue
-        if "_01_" not in folder and "_02_" not in folder and "_03_" not in folder:
+        if "_07_" not in folder:
             continue
         if os.path.exists(os.path.join(base_path, runs_folder + "pergola/" + folder)):
             folders.append("pergola/"+folder)
@@ -216,4 +218,4 @@ if __name__ == '__main__':
             folders.append("vineyard/"+folder)
     
     construct_query_and_database_sets(base_path, runs_folder, folders, "/pointcloud/lidar3d_0/",
-                                      "data.csv", P_DICT["vmd"], "vmd")
+                                      "data.csv", P_DICT["vmd"], "vmd")"""
