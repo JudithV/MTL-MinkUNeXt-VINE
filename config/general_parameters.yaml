@@ -86,8 +86,8 @@ blt:
   epochs: 200 # 75
   scheduler_milestones: [75, 150] # [25, 50]
   num_points: 23000
-  train_file: train_test_sets/blt/training_queries_blt_Ktima_3D_march.pickle
-  val_file: train_test_sets/blt/test_queries_blt_Ktima_3D_march.pickle
+  train_file: train_test_sets/blt/training_queries_blt_Ktima_3D_sept.pickle
+  val_file: train_test_sets/blt/test_queries_blt_Ktima_3D_sept.pickle
 
 vmd:
   epochs: 200 # 75
@@ -102,4 +102,4 @@ print:
   debug: False
 
 evaluate:
-  weights_path: '/media/arvc/HDD4TB/Judith/MTL-MinkUNeXt-VINE/weights/MinkUNeXt_vmd_20260126_0922_final.pth'
+  weights_path: '/media/arvc/HDD4TB/Judith/MTL-MinkUNeXt-VINE/weights/MinkUNeXt_blt_20260202_1940_final.pth'

@@ -258,7 +258,7 @@ if __name__ == '__main__':
     for folder in tqdm.tqdm(folders):
         if "run2_02_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
             continue
-        if "_10_" not in folder:
+        if "_04_" not in folder:
             continue
         files, scantimes_pcds, ref_times, scan_times, utm_pos = [], [], [], [], []
         if os.path.exists(base_path+RUNS_FOLDER+"pergola/"+folder):
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         df_triplet = pd.DataFrame(columns=['file', 'northing', 'easting'])
         if "run2_03_p" in folder: # "lidar3d_1" in POINTCLOUD_FOLS and //  or "run3" not in folder
             continue
-        if "_10_" not in folder:
+        if "_04_" not in folder:
             continue
         if os.path.exists(os.path.join(base_path,RUNS_FOLDER,"pergola",folder)):
             run_path = os.path.join(base_path,RUNS_FOLDER,"pergola",folder)
@@ -350,9 +350,9 @@ if __name__ == '__main__':
     print("Vineyard count in test: ", df_test["file"].str.count("vineyard").sum())
 
     # ind_nn_r is a threshold for positive elements - 10 is in original PointNetVLAD code for refined dataset
-    train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_sept_july_zones_VELO.pickle")
+    train_queries = construct_query_dict(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_may_zones_VELO.pickle")
     #plot_split_for_anchor(df_train, train_queries, "scans_train_set.png")
-    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_sept_zones_VELO.pickle")
+    test_queries = construct_query_dict(df_test, base_path+"/train_test_sets/vmd", "test_queries_vmd_may_zones_VELO.pickle")
     #plot_split_for_anchor(df_test, test_queries, "scans_test_set.png")"""
 
     #train_queries = construct_query_dict_pnv(df_train, base_path+"/train_test_sets/vmd", "training_queries_vmd_all_zones_VELO_PNV.pickle")

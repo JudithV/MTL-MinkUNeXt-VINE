@@ -188,8 +188,8 @@ def do_train(model):
         torch.save(model.state_dict(), checkpoint_path)
         # ******* FINALIZE THE EPOCH *******
         wandb.log(metrics)
-        if epoch_stats['global']['recall'][1] == 1.0:
-            break
+        """if epoch_stats['global']['recall'][1] == 1.0:
+            break"""
         if scheduler is not None:
             scheduler.step()
 

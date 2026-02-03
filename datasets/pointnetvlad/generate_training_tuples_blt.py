@@ -316,7 +316,7 @@ if __name__ == '__main__':
     
     for folder in tqdm.tqdm(folders):
         print(folders)
-        if "2022-03-" not in folder: # 2022-03-23-12-27-15  2022-04-06-11-02-34  2022-04-20-09-37-20  2022-05-06
+        if "2022-09-" not in folder: # 2022-03-23-12-27-15  2022-04-06-11-02-34  2022-04-20-09-37-20  2022-05-06
             continue
         #if os.path.exists(os.path.join(base_path, RUNS_FOLDER, "ktima", folder)):
         df_train, df_test = process_locations(base_path, RUNS_FOLDER, folder, "ktima", P_K, df_train, df_test)
@@ -326,8 +326,8 @@ if __name__ == '__main__':
     print("Number of training submaps: " + str(len(df_train['file'])))
     print("Number of non-disjoint test submaps: " + str(len(df_test['file'])))
     # ind_nn_r is a threshold for positive elements - 10 is in original PointNetVLAD code for refined dataset
-    construct_query_dict(df_train, base_path+"train_test_sets/blt", "training_queries_blt_Ktima_3D_march.pickle") # ind_nn_r=5
-    construct_query_dict(df_test, base_path+"train_test_sets/blt", "test_queries_blt_Ktima_3D_march.pickle") # ind_nn_r=5
+    construct_query_dict(df_train, base_path+"train_test_sets/blt", "training_queries_blt_Ktima_3D_sept.pickle") # ind_nn_r=5
+    construct_query_dict(df_test, base_path+"train_test_sets/blt", "test_queries_blt_Ktima_3D_sept.pickle") # ind_nn_r=5
 
     #construct_query_dict_pnv(df_train, base_path+"train_test_sets/blt", "training_queries_blt_Ktima_3D_PNV_autumn.pickle") # ind_nn_r=5
     #construct_query_dict_pnv(df_test, base_path+"train_test_sets/blt", "test_queries_blt_Ktima_3D_PNV_autumn.pickle")

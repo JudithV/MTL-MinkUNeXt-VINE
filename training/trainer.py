@@ -129,9 +129,13 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
             y = model(minibatch)
             embeddings_l.append(y['global'])
             if PARAMS.use_cross_entropy and 'labels' in minibatch:
-                clustering_logits_l.append(y['logits'])
-                labels_l.append(minibatch['labels'].to(device))
-                batch_idx_l.append(y['batch_idx'])
+                logits, batch_idx = y['logits'], y['batch_idx']
+                labels_mb = minibatch['labels'].squeeze().long().to(logits.device)
+
+                labels_for_logits = labels_mb[batch_idx]
+
+                clustering_logits_l.append(logits)
+                labels_l.append(labels_for_logits)
 
     torch.cuda.empty_cache()  # Prevent excessive GPU memory consumption by SparseTensors
 
@@ -144,8 +148,6 @@ def multistaged_training_step(global_iter, model, phase, device, optimizer, loss
     if PARAMS.use_cross_entropy:
         clustering_logits = torch.cat(clustering_logits_l, dim=0)
         labels = torch.cat(labels_l, dim=0) 
-        batch_idx = torch.cat(batch_idx_l, dim=0)
-        labels = labels[batch_idx]
 
     with torch.set_grad_enabled(phase == 'train'):
         if phase == 'train':

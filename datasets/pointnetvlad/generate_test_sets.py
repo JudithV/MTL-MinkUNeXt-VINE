@@ -185,7 +185,7 @@ if __name__ == '__main__':
     # Process the two different scenarios within the dataset
     all_folders = sorted(os.listdir(os.path.join(base_path, runs_folder + "ktima/"))) #+ sorted(os.listdir(os.path.join(base_path, runs_folder + "riseholme/")))
     for folder in all_folders:
-        if "2022-03-" not in folder:
+        if "2022-07-" not in folder:
             continue
         if os.path.exists(os.path.join(base_path, runs_folder + "ktima/" + folder)):
             folders.append("ktima/"+folder)
